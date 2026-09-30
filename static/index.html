@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>万仞 | AI 公众号内容工作台</title>
+  <style>
+    :root, [data-theme="mo"] {
+      color-scheme: light; --ink:#1d2528; --muted:#667376; --line:#dde4e1; --panel:#ffffff;
+      --canvas:#f4f6f4; --green:#175641; --green-dark:#0d3a2b; --green-soft:#e7f0eb;
+      --amber:#b76a1b; --amber-soft:#fff3e3; --red:#a63a2f; --red-soft:#fdecea;
+      --side-text:#c8d8cf; --side-muted:#a9c4b7; --mark-bg:#e8c88a; --mark-ink:#41331a;
+      --active-bg:#e8c88a; --active-ink:#33270f; --overlay:#0d3a2b; --shadow:0 8px 28px rgba(23,86,65,.08);
+      font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    }
+    [data-theme="azure"] { color-scheme:light; --ink:#16273a; --muted:#5d7081; --line:#d9e3ec; --panel:#fff; --canvas:#f2f6fa; --green:#0f5f8f; --green-dark:#123a55; --green-soft:#e3f0f8; --amber:#a8641d; --amber-soft:#fff2e3; --red:#9c3b34; --red-soft:#fdecea; --side-text:#c6d9e8; --side-muted:#9db7c9; --mark-bg:#a9d5ea; --mark-ink:#123549; --active-bg:#a9d5ea; --active-ink:#123549; --overlay:#123a55; }
+    [data-theme="graphite"] { color-scheme:dark; --ink:#e8eef1; --muted:#9dadb5; --line:#2c3941; --panel:#151e23; --canvas:#0c1215; --green:#49a795; --green-dark:#081013; --green-soft:#173230; --amber:#d89441; --amber-soft:#302317; --red:#e27564; --red-soft:#361d1a; --side-text:#c6d3d8; --side-muted:#8798a0; --mark-bg:#8fc9bb; --mark-ink:#08110f; --active-bg:#8fc9bb; --active-ink:#08110f; --overlay:#08110f; }
+    [data-theme="vermilion"] { color-scheme:light; --ink:#2e231f; --muted:#716155; --line:#e6d9d2; --panel:#fffdfa; --canvas:#f7f1ed; --green:#a63d2a; --green-dark:#4c1d14; --green-soft:#fae7e1; --amber:#97630d; --amber-soft:#f9ecd5; --red:#8f2f24; --red-soft:#f9e3df; --side-text:#efd2c7; --side-muted:#d0aaa0; --mark-bg:#edbd8f; --mark-ink:#432015; --active-bg:#edbd8f; --active-ink:#432015; --overlay:#4c1d14; }
+    [data-theme="violet"] { color-scheme:light; --ink:#241f35; --muted:#675f7d; --line:#e0dcec; --panel:#ffffff; --canvas:#f6f4fb; --green:#5d55ae; --green-dark:#251f4a; --green-soft:#eceafa; --amber:#9b661d; --amber-soft:#fff1df; --red:#993746; --red-soft:#fbe8ec; --side-text:#d5cff0; --side-muted:#aaa2ce; --mark-bg:#d8c68b; --mark-ink:#332a10; --active-bg:#d8c68b; --active-ink:#332a10; --overlay:#251f4a; }
+    [data-theme="tide"] { color-scheme:light; --ink:#172825; --muted:#5f736e; --line:#dbe4e0; --panel:#ffffff; --canvas:#f1f6f3; --green:#22696d; --green-dark:#0d3a3c; --green-soft:#e1f0ef; --amber:#a5681c; --amber-soft:#fff2e2; --red:#9b3b33; --red-soft:#fdebe8; --side-text:#c9ded8; --side-muted:#a1bcb4; --mark-bg:#efc98a; --mark-ink:#41321a; --active-bg:#efc98a; --active-ink:#41321a; --overlay:#0d3a3c; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 0; background: var(--canvas); color: var(--ink); }
+    button, input, select, textarea { font: inherit; }
+    .app { display: grid; grid-template-columns: var(--side-w, clamp(180px, 18vw, 400px)) 6px 1fr; grid-template-rows: auto minmax(0, 1fr); min-height: 100vh; }
+    .app > .topnav { grid-column: 1 / -1; grid-row: 1; }
+    .app > .side { grid-column: 1; grid-row: 2; }
+    .app > .side-resizer { grid-column: 2; grid-row: 2; }
+    .app > .main { grid-column: 3; grid-row: 2; }
+    .side-resizer { cursor: col-resize; position: relative; touch-action: none; border-right: 1px solid var(--line); background: var(--canvas); }
+    .side-resizer::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 4px; height: 44px; border-radius: 99px; background: var(--line); transition: background .15s; }
+    .side-resizer:hover::after, .side-resizer.active::after { background: var(--green); }
+    /* 侧栏收起（纯图标切换，Codex 式） */
+    body.side-collapsed .app { grid-template-columns: 0px 0px minmax(0, 1fr) !important; }
+    body.side-collapsed .side, body.side-collapsed .side-resizer { display: none; }
+    .icon-btn { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; padding: 0; flex: 0 0 auto; }
+    .icon-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+    .icon-btn svg { display: block; }
+    .topnav .icon-btn { border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.10); color: #f3f7f5; }
+    .topnav .icon-btn:hover { border-color: var(--active-bg); background: rgba(255,255,255,.22); color: #fff; }
+    .side-head .icon-btn { width: 30px; height: 30px; }
+    .topnav { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; row-gap: 4px; gap: 6px; padding: 0 18px; background: var(--green-dark); color: #edf5f0; position: sticky; top: 0; z-index: 30; }
+    .topnav .brand { padding: 0; margin-right: 14px; flex: 0 0 auto; display: flex; align-items: center; gap: 9px; }
+    .topnav .brand-copy strong { white-space: nowrap; }
+    .topnav .brand-mark { width: 28px; height: 28px; font-size: 15px; border-radius: 5px; }
+    .topnav .brand-copy strong { font-size: 15px; }
+    .topnav .brand-copy span { display: none; }
+    .topnav .nav-button { height: 32px; padding: 0 11px; border-radius: 6px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; text-align: center; white-space: nowrap; flex: 0 0 auto; }
+    .topnav .nav-spacer { flex: 1; }
+    .topnav .search { width: 260px; height: 32px; font-size: 12.5px; }
+    .topnav .theme-switcher { margin-left: 8px; }
+    .topnav .topnav-user { font-size: 11.5px; color: var(--side-muted); margin-left: 10px; white-space: nowrap; }
+    .topnav .topnav-user button { margin-left: 8px; }
+    .side { position: sticky; top: 54px; height: calc(100vh - 54px); background: var(--panel); border-right: 1px solid var(--line); color: var(--ink); padding: 14px 10px 16px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+    .side-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+    .side-head strong { font-size: 13px; }
+    .side-head button { height: 26px; border: 1px solid var(--green); border-radius: 6px; background: var(--green); color: #fff; font-size: 12px; cursor: pointer; padding: 0 9px; }
+    .tree-account { margin: 8px 4px 2px; }
+    .tree-account-head { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; padding: 4px 6px; }
+    .tree-account-head .status { transform: scale(.86); transform-origin: left center; }
+    .tree-article { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; width: 100%; border: 0; background: transparent; color: var(--ink); text-align: left; border-radius: 7px; padding: 7px 9px; cursor: pointer; font-size: 12.5px; }
+    .tree-article:hover { background: var(--green-soft); }
+    .tree-article.active { background: var(--active-bg); color: var(--active-ink); font-weight: 650; }
+    .tree-article-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-empty { color: var(--muted); font-size: 12px; padding: 12px 10px; }
+    .side-foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; font-size: 11.5px; color: var(--muted); }
+    .nav-button { border: 0; background: transparent; color: var(--side-text); text-align: left; padding: 11px 12px; border-radius: 6px; cursor: pointer; display: flex; gap: 10px; align-items: center; }
+    .nav-button:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .nav-button.active { background: var(--active-bg); color: var(--active-ink); font-weight: 650; }
+    .main { padding: 24px 28px 40px; overflow-x: hidden; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; gap: 20px; }
+    h1 { font-size: 25px; margin: 0; letter-spacing: 0; }
+    .sub { color: var(--muted); margin-top: 5px; font-size: 13px; }
+    .search { width: 360px; height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 0 12px; background: var(--panel); color: var(--ink); }
+    .metrics { display: grid; grid-template-columns: repeat(4,minmax(160px,1fr)); gap: 12px; margin-bottom: 16px; }
+    .metric { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-height: 96px; }
+    .metric label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .metric strong { font-size: 28px; line-height: 1; }
+    .metric span { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(560px,1fr) 360px; gap: 16px; align-items:start; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); margin-bottom: 16px; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--line); min-height: 58px; }
+    .panel-head h2 { margin: 0; font-size: 16px; }
+    .panel-head small { color: var(--muted); display:block; margin-top:3px; font-weight:400; }
+    .panel-body { padding: 18px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .field { display: flex; flex-direction: column; gap:6px; margin-bottom:12px; }
+    .field label { font-size:12px; color:var(--muted); font-weight:650; }
+    .field input,.field select,.field textarea { min-height:38px; border:1px solid var(--line); border-radius:6px; padding:8px 10px; background:var(--panel); color:var(--ink); width:100%; }
+    .field textarea { min-height:76px; resize:vertical; }
+    .field textarea.code { min-height:180px; font-family:ui-monospace,Consolas,monospace; font-size:12px; white-space:pre; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn { height:36px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink); padding:0 13px; cursor:pointer; display:inline-flex; align-items:center; gap:7px; font-size:13px; white-space:nowrap; }
+    .btn:hover { border-color:var(--muted); background:var(--green-soft); }
+    .btn.primary { background:var(--green); border-color:var(--green); color:#fff; font-weight:650; }
+    .btn.primary:hover { background:#13503d; }
+    .btn.amber { background:var(--amber); border-color:var(--amber); color:#fff; }
+    .btn.danger { background:#fff; color:var(--red); border-color:#e5b6af; }
+    .btn.small { height:30px; padding:0 9px; font-size:12px; }
+    .btn:disabled { opacity:.48; cursor:not-allowed; }
+    .btn.loading::after { content:""; width:12px; height:12px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; display:inline-block; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .upload { border:1px dashed var(--muted); border-radius:8px; padding:18px; background:var(--canvas); display:grid; gap:12px; }
+    .asset-row,.session-row,.workflow-row { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); }
+    .asset-row:last-child,.session-row:last-child,.workflow-row:last-child { border-bottom:0; }
+    .asset-title,.session-title { font-weight:650; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:390px; }
+    .muted { color:var(--muted); font-size:12px; margin-top:4px; }
+    .status { display:inline-flex; align-items:center; height:24px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:700; background:var(--green-soft); color:var(--green); white-space:nowrap; }
+    .status.warn { background:var(--amber-soft); color:var(--amber); }
+    .status.bad { background:var(--red-soft); color:var(--red); }
+    .empty { color:var(--muted); text-align:center; padding:30px 10px; font-size:13px; }
+    .review-score { display:flex; align-items:center; gap:14px; padding:14px; border-radius:8px; background:var(--green-soft); margin-bottom:12px; }
+    .score-ring { width:64px; height:64px; border-radius:50%; border:6px solid var(--green); display:grid; place-items:center; font-size:18px; font-weight:800; color:var(--green); flex:0 0 auto; }
+    /* 等待态指示：纯 CSS 旋转圆环（不依赖字体，避免 ◎/… 在部分字体渲染成实心方块） */
+    .score-ring.busy { border-color: var(--green-soft); border-top-color: var(--green); animation: spin .9s linear infinite; }
+    .issues { display:grid; gap:8px; }
+    .issue { border-left:3px solid var(--amber); background:var(--amber-soft); padding:10px 12px; font-size:12px; }
+    .article-preview { border:1px solid var(--line); border-radius:8px; padding:18px; }
+    /* 与公众号正文同宽（发布 HTML 即 677px）：宽度封顶居中，长度随内容增长 */
+    .article-preview { width:100%; max-width:713px; margin:0 auto; }
+    .article-editor-toolbar { display:none; }
+    .article-preview h3 { margin:0 0 8px; font-size:20px; }
+    .article-preview h4 { margin:22px 0 8px; color:var(--green); font-size:16px; }
+    .article-preview p { margin:0 0 12px; line-height:1.75; white-space:pre-wrap; }
+    .article-figure { margin:18px 0 16px; }
+    .article-figure img { display:block;width:100%;max-height:520px;object-fit:contain;background:var(--canvas);border:1px solid var(--line);border-radius:7px; }
+    .article-figure figcaption { margin-top:7px;color:var(--muted);font-size:12px;text-align:center; }
+    .article-editor-section { position:relative; }
+    .article-editor-footer { display:flex;justify-content:space-between;gap:12px;margin-top:18px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:11px; }
+    .health { display:grid; place-items:center; padding:18px; }
+    .health-score { width:112px; height:112px; border-radius:50%; border:10px solid var(--green); display:grid; place-items:center; font-size:30px; font-weight:800; color:var(--green); }
+    .account-row { display:grid; grid-template-columns:1fr auto; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
+    .view-section { display:block; }
+    .view-section[hidden] { display:none; }
+    .process-grid { display:grid; grid-template-columns:repeat(5,minmax(150px,1fr)); gap:10px; }
+    .stage-card { text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:14px;min-height:104px;cursor:pointer;display:grid;gap:7px;align-content:start; }
+    .stage-card:hover { border-color:var(--green);background:var(--green-soft); }
+    .stage-card.current { border-color:var(--green);box-shadow:0 0 0 2px rgba(23,86,65,.12); }
+    .stage-index { width:24px;height:24px;border-radius:50%;background:var(--green-soft);color:var(--green);display:grid;place-items:center;font-size:12px;font-weight:800; }
+    .stage-card.done .stage-index { background:var(--green);color:#fff; }
+    .stage-card.pending .stage-index { background:var(--canvas);color:var(--muted); }
+    .stage-card.bad { border-color:var(--red);background:var(--red-soft); }
+    .stage-title { font-size:13px;font-weight:700; }
+    .stage-copy { font-size:11px;color:var(--muted);line-height:1.45; }
+    .stage-detail { border:1px solid var(--line);border-radius:8px;padding:16px;background:var(--panel); }
+    .audit-row { display:grid;grid-template-columns:150px 1fr 130px;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:12px; }
+    .audit-row:last-child { border-bottom:0; }
+    .article-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px; }
+    .article-card { border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column; }
+    .article-card:hover { border-color:var(--green);box-shadow:0 8px 24px rgba(23,86,65,.10); }
+    .article-cover { position:relative;aspect-ratio:16/9;background:var(--canvas);display:grid;place-items:center;overflow:hidden; }
+    .article-cover img { width:100%;height:100%;object-fit:cover;display:block; }
+    .article-cover-fallback { color:var(--muted);font-size:12px; }
+    .article-card-status { position:absolute;top:9px;right:9px;background:rgba(255,255,255,.92); }
+    .article-card-body { padding:13px 14px 15px;display:flex;flex-direction:column;gap:8px;flex:1; }
+    .article-card-title { font-size:15px;font-weight:750;line-height:1.45;min-height:44px; }
+    .article-card-summary { color:var(--muted);font-size:12px;line-height:1.55;min-height:37px;overflow:hidden; }
+    .article-card-meta { color:var(--muted);font-size:11px;line-height:1.5; }
+    .article-review-panel .panel-body { display:flex;flex-direction:column; }
+    .article-workbench { display:grid;grid-template-columns:minmax(380px,1fr) 6px minmax(240px,calc(var(--chat-w,clamp(300px,31vw,560px)) * var(--czw,1)));gap:0 10px;align-items:stretch;flex:1;min-height:0; }
+    .panel-resizer { cursor:col-resize;position:relative;touch-action:none; }
+    .panel-resizer::after { content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:44px;border-radius:99px;background:var(--line);transition:background .15s; }
+    .panel-resizer:hover::after, .panel-resizer.active::after { background:var(--green); }
+    /* 局部缩放包裹层：Ctrl+滚轮在编辑区/对话区只改字号，不动布局宽度 */
+        /* 面板缩放：transform 方案（本机 Edge 上 CSS zoom 不渲染）——布局宽按 1/z 排版再视觉放大 z，
+       面板宽度恒定；margin-bottom 由 JS 补占位（视觉高 = 布局高×z） */
+    /* 编辑器=所见即所得等比缩放：排版宽度恒定（与公众号一致，换行不变），scale 整体放大可横滚 */
+    /* 编辑器=所见即所得等比缩放：排版宽度恒定 677px（与公众号发布正文一致，换行不变），
+       卡片 713 = 677 + 两侧 18px 内边距；scale 整体放大后可横向滚动 */
+    .preview-zoom { transform: scale(var(--pz,1)); transform-origin: 0 0; width: 677px; transition: transform .12s ease-out; }
+    .article-preview { overflow-x: auto; max-width: 713px; }
+    .chat-zoom { transform: scale(var(--cz,1)); transform-origin: 0 0; width: calc(100% / var(--cz,1)); transition: transform .12s ease-out; }
+    /* 对话面板：宽度恒定、仅字号缩放（聊天不需要所见即所得） */
+    .article-main-column { min-width:0;display:flex;flex-direction:column; } /* 677 由轨道控制；条目收缩时预览内部横向滚动 */
+    .article-chat-panel { min-width:0; }
+    .article-chat-panel { border:1px solid var(--line);border-radius:8px;background:var(--canvas);overflow:hidden;display:flex;flex-direction:column;align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px); }
+    .article-chat-panel.drag-over { border:2px dashed var(--accent);background:color-mix(in srgb, var(--accent) 6%, var(--canvas)); }
+    .article-chat-panel.drag-over::after { content:'松开以添加素材';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--accent);background:color-mix(in srgb, var(--canvas) 82%, transparent);pointer-events:none;z-index:5; }
+    .chat-attachments { display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px 0;border-top:1px dashed var(--line);background:var(--panel); }
+    .attach-chip { display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:7px;padding:4px 6px 4px 4px;background:var(--canvas);max-width:200px; }
+    .attach-chip img { width:34px;height:34px;object-fit:cover;border-radius:5px; }
+    .attach-chip .asset-file-badge.small { width:34px;height:34px;font-size:9px;letter-spacing:0; }
+    .attach-chip-name { font-size:11px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px; }
+    .attach-chip-remove { border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;border-radius:4px; }
+    .attach-chip-remove:hover { color:var(--danger,#c33);background:var(--line); }
+    .msg-attachments { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
+    .msg-attachments img { width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:zoom-in; }
+    .ai-changed { background:linear-gradient(transparent 12%, #ffe58a 12%, #ffe58a 92%, transparent 92%);color:inherit;padding:0 2px;border-radius:2px; }
+    .ai-highlight-banner { display:flex;align-items:center;gap:8px;background:color-mix(in srgb,#ffe58a 30%,var(--panel));border:1px solid #e6d08c;border-radius:7px;padding:6px 12px;margin:8px 0;font-size:12px;color:var(--ink); }
+    .ai-highlight-banner .link-btn { border:none;background:none;color:var(--accent,#175641);cursor:pointer;font-size:12px;text-decoration:underline;padding:0; }
+    mark.tool-replay { background:linear-gradient(transparent 12%, #ffe58a 12%, #ffe58a 92%, transparent 92%);padding:0 2px;border-radius:2px; }
+    #tool-replay-banner { position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:60; box-shadow:0 4px 14px rgba(0,0,0,.16); max-width:min(640px, 88vw); }
+    .chat-tool.clickable { cursor:pointer;border:1px solid transparent;transition:border-color .15s,background .15s; }
+    .chat-tool.clickable:hover { border-color:var(--accent,#175641);background:var(--green-soft,#e7f0eb); }
+    .chat-tool.clickable.active { border-color:var(--accent,#175641);background:var(--green-soft,#e7f0eb); }
+    .chat-tool .tool-hint { font-style:normal;font-size:10.5px;color:var(--accent,#175641);opacity:.75;margin-left:4px; }
+    /* 素材库两级导航：账号卡片（默认折叠）→ 对话组 */
+    .asset-account-card { border:1px solid var(--line); border-radius:9px; margin:0 0 10px; background:var(--panel); overflow:hidden; }
+    .asset-account-head { display:flex; align-items:center; gap:10px; width:100%; border:0; background:var(--canvas); color:var(--ink); padding:11px 14px; cursor:pointer; font-size:13.5px; font-weight:650; text-align:left; }
+    .asset-account-head:hover { background:var(--green-soft); color:var(--green-dark); }
+    .chevron-icon { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--panel); border:1px solid var(--line); color:var(--muted); transition:transform .18s ease, color .18s, border-color .18s; flex:0 0 auto; }
+    .asset-account-head:hover .chevron-icon { border-color:var(--green); color:var(--green); }
+    .asset-account-card.open > .asset-account-head { background:var(--green-soft); color:var(--green-dark); }
+    .asset-account-card.open > .asset-account-head .chevron-icon { transform:rotate(90deg); border-color:var(--green); color:var(--green); }
+    .asset-account-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .asset-account-body { padding:10px 12px 12px; }
+    /* 新对话弹窗的样式选择行 */
+    .new-chat-style-row { display:flex; align-items:flex-start; gap:10px; }
+    .new-chat-style-row .style-row-label { font-size:12px; color:var(--muted); font-weight:650; line-height:30px; flex:0 0 auto; }
+    .style-chip-strip { display:flex; gap:7px; flex-wrap:wrap; }
+    .style-chip { display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 10px; border:1px solid var(--line); border-radius:999px; background:var(--panel); color:var(--ink); font-size:12px; cursor:pointer; }
+    .style-chip:hover { border-color:var(--green); }
+    .style-chip.active { border-color:var(--green); background:var(--green-soft); color:var(--green); font-weight:650; }
+    .style-chip .dot { width:12px; height:12px; border-radius:50%; flex:0 0 auto; }
+    .style-chip .eye { border:none; background:none; cursor:zoom-in; color:var(--muted); font-size:11px; padding:0 2px; }
+    .style-chip .eye:hover { color:var(--green); }
+    .style-chip .strip-hint { font-size:11px; color:var(--muted); align-self:center; margin-left:4px; }
+    /* 所见即所得：编辑器版式装饰（刊头横幅/眉题/线框/文末，不可编辑） */
+    .ed-banner { padding:10px 16px; margin:0 0 6px; border-radius:6px; }
+    .ed-eyebrow { font-size:12px; font-weight:650; letter-spacing:2px; margin:26px 0 6px; }
+    /* 工具条保持浅色 chrome：深色画布不吞工具条文字 */
+    body.article-immersive .article-editor-toolbar { color:#667376; }
+    body.article-immersive .article-editor-toolbar span, body.article-immersive .article-editor-toolbar .fmt-label { color:#667376; }
+    .ed-frame { padding:16px 18px 14px; margin:0 0 18px; border-radius:8px; }
+    .ed-frame .ed-eyebrow { margin-top:0; }
+    .ed-end { text-align:center; font-size:12px; margin:28px auto 8px; padding:8px 12px; max-width:420px; }
+    .article-editor-section { margin-top:26px; }
+    .article-preview h3 { margin:0 0 8px; }
+    /* 所见即所得：章节徽章（版式文字，不参与编辑） */
+    .sec-badge { margin: 18px 0 6px; }
+    .sec-badge-dot { width:26px;height:26px;border-radius:50%;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-right:10px;vertical-align:middle; }
+    .sec-badge-step { display:inline-block;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:1px;margin:18px 0 6px;border-radius:4px; }
+    .article-preview h4 { margin: 18px 0 8px; }
+    /* 样式模版画廊：卡片 = 无文字的迷你版式示意 + 名称 */
+    .style-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+    .style-card { border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; cursor:pointer; transition:border-color .15s, box-shadow .15s; display:flex; flex-direction:column; }
+    .style-card:hover { border-color:var(--green); box-shadow:0 8px 22px rgba(23,86,65,.12); }
+    .style-mock { height:150px; padding:12px 14px; display:flex; flex-direction:column; gap:7px; overflow:hidden; }
+    .style-mock .mock-banner { height:16px; border-radius:3px; }
+    .style-mock .mock-heading { display:flex; align-items:center; gap:6px; }
+    .style-mock .mock-num { width:16px; height:16px; border-radius:50%; font-size:9px; display:inline-flex; align-items:center; justify-content:center; color:#fff; }
+    .style-mock .mock-title { height:10px; width:56%; border-radius:2px; }
+    .style-mock .mock-line { height:6px; border-radius:2px; }
+    .style-mock .mock-quote { height:22px; border-radius:4px; margin-top:2px; }
+    .style-card-body { padding:10px 13px 12px; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .style-card-body strong { font-size:13.5px; }
+    .style-card-body .muted { font-size:11px; margin-top:2px; }
+    .style-card-actions { display:flex; gap:6px; flex:0 0 auto; }
+    .style-card-actions button { height:26px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--muted); font-size:11px; cursor:pointer; padding:0 8px; }
+    .style-card-actions button:hover { border-color:var(--green); color:var(--green); }
+    .style-badge { display:inline-flex; height:20px; align-items:center; padding:0 7px; border-radius:999px; background:var(--green-soft); color:var(--green); font-size:10.5px; font-weight:700; margin-left:7px; }
+    /* 样式预览弹窗与导入弹窗 */
+    #style-preview-modal, #style-import-modal { position:fixed; inset:0; z-index:70; display:grid; place-items:center; background:color-mix(in srgb, var(--overlay,#0d3a2b) 55%, transparent); backdrop-filter:blur(2px); }
+    #style-preview-frame { width:min(720px,94vw); height:min(70vh,800px); border:1px solid var(--line); border-radius:12px; background:#fff; overflow:auto; }
+    .style-sample-bar { display:flex; gap:7px; flex-wrap:wrap; padding:10px 20px 12px; border-bottom:1px solid var(--line); background:var(--canvas); }
+    .style-sample-bar button { height:28px; border:1px solid var(--line); border-radius:999px; background:var(--panel); color:var(--muted); font-size:12px; cursor:pointer; padding:0 12px; }
+    .style-sample-bar button.active { border-color:var(--green); background:var(--green); color:#fff; font-weight:700; }
+    .style-sample-bar .hint { font-size:11px; color:var(--muted); align-self:center; margin-left:auto; }
+    #style-import-textarea { min-height:180px; font-family:ui-monospace,Consolas,monospace; font-size:12px; }
+    /* 架构提案卡（第一次使用：大模型先给大纲，用户确认 / 修改 / 取消） */
+    .proposal-card { border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; max-width:100%; }
+    .proposal-head { padding:12px 14px; background:var(--green-soft); border-bottom:1px solid var(--line); }
+    .proposal-head strong { font-size:14px; }
+    .proposal-head .muted { margin-top:3px; }
+    .proposal-sections { padding:10px 14px; display:grid; gap:9px; }
+    .proposal-section { display:grid; grid-template-columns:26px 1fr; gap:8px; align-items:start; }
+    .proposal-section .num { width:24px; height:24px; border-radius:50%; background:var(--green); color:#fff; display:grid; place-items:center; font-size:12px; font-weight:700; margin-top:1px; }
+    .proposal-section .heading { font-weight:650; font-size:13px; }
+    .proposal-section .plan { color:var(--muted); font-size:12px; line-height:1.6; margin-top:2px; }
+    .proposal-style { padding:11px 14px; border-top:1px dashed var(--line); display:grid; gap:7px; }
+    .proposal-style .style-reason { font-size:12px; color:var(--muted); line-height:1.6; }
+    .proposal-style select { height:34px; border:1px solid var(--line); border-radius:7px; background:var(--panel); color:var(--ink); padding:0 8px; }
+    .proposal-style .alt { font-size:11.5px; color:var(--muted); }
+    .proposal-actions { display:flex; gap:9px; padding:11px 14px 13px; border-top:1px solid var(--line); }
+    .proposal-actions .btn { flex:1; justify-content:center; }
+    .proposal-note { font-size:11.5px; color:var(--muted); padding:0 14px 10px; line-height:1.6; }
+    /* 新对话居中对话框（Codex 式开局） */
+    #new-chat-modal, #import-draft-modal { position:fixed; inset:0; z-index:70; display:grid; place-items:center; background:color-mix(in srgb, var(--overlay,#0d3a2b) 55%, transparent); backdrop-filter:blur(2px); }
+    .new-chat-card { width:min(680px, 92vw); background:var(--panel); border-radius:14px; box-shadow:var(--shadow); overflow:hidden; }
+    .new-chat-head { display:flex; justify-content:space-between; align-items:center; padding:16px 20px 10px; font-size:16px; }
+    .new-chat-body { padding:6px 20px 20px; display:flex; flex-direction:column; gap:12px; }
+    #new-chat-input { min-height:120px; resize:vertical; border:1.5px solid var(--line); border-radius:10px; padding:12px 14px; font-size:14px; background:var(--canvas); color:var(--ink); }
+    #new-chat-input:focus { border-color:var(--green); outline:none; }
+    .new-chat-actions { display:flex; gap:10px; align-items:center; }
+    .new-chat-actions select { flex:1; height:36px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); padding:0 8px; }
+    .new-chat-actions .btn { height:36px; padding:0 18px; }
+    #new-chat-modal.drag-over .new-chat-card { outline:2px dashed var(--green); outline-offset:4px; }
+    /* 生成中骨架屏 */
+    .gen-skeleton { padding:26px 10px; }
+    .gen-skeleton-title { height:26px; width:52%; margin:0 auto 22px; border-radius:6px; background:linear-gradient(90deg,var(--line) 25%,var(--canvas) 50%,var(--line) 75%); background-size:200% 100%; animation:genshine 1.6s infinite; }
+    .gen-skeleton-line { height:14px; border-radius:5px; margin:11px 0; background:linear-gradient(90deg,var(--line) 25%,var(--canvas) 50%,var(--line) 75%); background-size:200% 100%; animation:genshine 1.6s infinite; }
+    .gen-skeleton-line.w80 { width:80%; } .gen-skeleton-line.w90 { width:90%; } .gen-skeleton-line.w75 { width:75%; } .gen-skeleton-line.w60 { width:60%; }
+    @keyframes genshine { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+    .tree-article-row { display:grid; grid-template-columns:1fr 24px; gap:4px; align-items:center; border-radius:7px; }
+    .tree-article-row .tree-article { min-width:0; }
+    .tree-del { opacity:0; border:none; background:none; color:var(--muted); cursor:pointer; width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; }
+    .tree-article-row:hover .tree-del { opacity:.8; }
+    .tree-del:hover { color:var(--red,#a63a2f); background:var(--red-soft,#fdecea); opacity:1; }
+    .tree-del-confirm { font-size:10.5px; color:var(--red,#a63a2f); font-weight:700; }
+    .tree-published-toggle { border:none; background:none; color:var(--muted); font-size:11.5px; cursor:pointer; padding:8px; width:100%; text-align:left; border-radius:6px; }
+    .tree-published-toggle:hover { color:var(--green); background:var(--green-soft); }
+    #import-draft-list { max-height:46vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+    .import-draft-row { border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+    #import-draft-button { height:26px; border:1px solid var(--green); border-radius:6px; background:var(--panel); color:var(--green); font-size:12px; cursor:pointer; padding:0 8px; }
+    #import-draft-button:hover { background:var(--green-soft); }
+    .tree-article.active { border-radius:7px; }
+    .revert-btn { margin-top:8px; margin-left:8px; border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:6px; padding:3px 10px; font-size:11.5px; cursor:pointer; }
+    .revert-btn:hover { border-color:var(--red,#a63a2f); color:var(--red,#a63a2f); background:var(--red-soft,#fdecea); }
+    .vision-details { margin-top:6px; border:1px dashed var(--line); border-radius:7px; background:var(--panel); }
+    .vision-details summary { cursor:pointer; padding:6px 10px; font-size:12px; color:var(--green); font-weight:600; user-select:none; }
+    .vision-details summary:hover { background:var(--green-soft); border-radius:7px; }
+    .vision-details pre { margin:0; padding:8px 10px; font-size:11px; line-height:1.5; color:var(--muted); white-space:pre-wrap; word-break:break-all; border-top:1px dashed var(--line); max-height:260px; overflow:auto; }
+    .asset-dialog-group { margin:6px 2px 10px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+    .asset-dialog-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; font-size:12.5px; font-weight:650; color:var(--green); }
+    .asset-dialog-head > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .replay-btn { margin-top:8px;border:1px solid var(--accent,#175641);background:transparent;color:var(--accent,#175641);border-radius:6px;padding:3px 10px;font-size:11.5px;cursor:pointer; }
+    .replay-btn:hover, .replay-btn.active { background:var(--accent,#175641);color:#fff; }
+    .asset-file-badge.small { min-width:64px;height:64px;display:flex;align-items:center;justify-content:center;border-radius:6px;border:1px solid var(--line);background:var(--panel);font-size:11px;font-weight:700;color:var(--muted); }
+    .chat-message.asset-attachment { border:1px dashed var(--line);border-radius:8px;padding:10px 12px;background:var(--panel); }
+    .asset-attach-body { display:flex;gap:10px;align-items:center;margin-top:6px; }
+    .asset-attach-body img { width:84px;height:84px;object-fit:cover;border-radius:6px;border:1px solid var(--line); }
+    .asset-file-badge { min-width:84px;height:84px;display:flex;align-items:center;justify-content:center;border-radius:6px;border:1px solid var(--line);background:var(--canvas);font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.5px; }
+    .asset-attach-meta { display:flex;flex-direction:column;gap:4px;min-width:0; }
+    .asset-attach-meta .asset-name { font-weight:600;word-break:break-all; }
+    .article-chat-panel header { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line);background:var(--panel); }
+    .article-chat-panel header small { display:block;margin-top:3px;color:var(--muted);font-size:11px; }
+    .chat-header-actions { display:flex;align-items:center;gap:7px;flex:0 0 auto; }
+    .chat-header-actions button { height:27px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:11px;cursor:pointer;padding:0 10px; }
+    .chat-header-actions button:hover { border-color:var(--green);color:var(--green);background:var(--green-soft); }
+    .chat-messages { display:flex;flex-direction:column;gap:9px;flex:1;min-height:300px;max-height:560px;overflow:auto;padding:14px; }
+    .chat-message { max-width:86%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--panel);font-size:13px;line-height:1.65; }
+    .chat-message strong { display:block;font-size:10px;color:var(--muted);margin-bottom:4px; }
+    .chat-message.user { align-self:flex-end;border-color:var(--green);background:var(--green-soft); }
+    .chat-message.assistant { align-self:flex-start; }
+    .chat-message.failed { border-color:var(--red);color:var(--red); }
+    .chat-tool { display:flex;align-items:center;gap:7px;align-self:flex-start;max-width:100%;border:1px dashed var(--line);border-radius:7px;padding:6px 8px;color:var(--muted);font-size:11px;background:var(--panel); }
+    .chat-tool.completed { color:var(--green);border-color:var(--green); }
+    .chat-tool.failed { color:var(--red);border-color:var(--red); }
+    .chat-empty { margin:auto;color:var(--muted);font-size:12px;text-align:center; }
+    .chat-quick-actions { display:flex;gap:7px;flex-wrap:wrap;padding:0 14px 10px; }
+    .chat-quick-actions button { height:27px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:11px;cursor:pointer;padding:0 10px; }
+    .chat-composer { display:grid;grid-template-columns:1fr 96px;gap:9px;padding:12px 14px 14px;border-top:1px solid var(--line);background:var(--panel); }
+    .chat-composer textarea { min-height:72px;resize:vertical;border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:var(--panel);color:var(--ink);font-size:13px; }
+    .chat-composer button { height:36px;border:1px solid var(--green);border-radius:7px;background:var(--green);color:#fff;font-weight:700;cursor:pointer; }
+    .chat-composer button:disabled { opacity:.55;cursor:not-allowed; }
+    .typing-caret { display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-.12em;background:var(--green);animation:typing-blink .75s steps(1) infinite; }
+    @keyframes typing-blink { 50% { opacity:0; } }
+    body.article-immersive { overflow:hidden; }
+    /* 沉浸模式：保留顶栏与左侧对话栏，主区收满剩余空间（Codex 式三栏） */
+    body.article-immersive .app { height:100vh; min-height:0; }
+    body.article-immersive .topbar,
+    body.article-immersive .metrics,
+    body.article-immersive .layout { display:none; }
+    body.article-immersive .main { min-height:0; height:auto; padding:0; overflow:hidden; }
+    body.article-immersive #workspace-view { display:flex;flex-direction:column;height:100%;min-height:0; }
+    body.article-immersive .article-review-panel { flex:1;min-height:0;height:auto;margin:0;border:0;border-radius:0;display:flex;flex-direction:column; }
+    body.article-immersive .article-review-panel .panel-head,
+    body.article-immersive .review-score { display:none; }
+    body.article-immersive .article-review-panel .panel-body { flex:1;min-height:0; }
+    body.article-immersive .article-review-panel .panel-body { padding:0; }
+    body.article-immersive .article-workbench { height:100%;min-height:0;grid-template-columns:minmax(380px,1fr) 6px minmax(240px,calc(var(--chat-w,clamp(300px,31vw,560px)) * var(--czw,1)));grid-template-rows:minmax(0,1fr); }
+    body.article-immersive .article-main-column > :not(.article-preview) { display:none; }
+    body.article-immersive .article-preview { flex:1;min-height:0;overflow:auto;width:100%;max-width:713px;margin:0 auto; }
+    body.article-immersive .article-editor-toolbar { position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 10px;margin:-18px -18px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.96);backdrop-filter:blur(10px); }
+    body.article-immersive .article-editor-toolbar span { min-width:86px;color:var(--muted);font-size:11px; }
+    body.article-immersive .article-editor-toolbar button { height:28px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:11px;cursor:pointer;padding:0 9px; }
+    body.article-immersive .article-editor-toolbar button:hover { border-color:var(--green);color:var(--green);background:var(--green-soft); }
+    body.article-immersive .article-editor-toolbar button.primary { border-color:var(--green);background:var(--green);color:#fff;font-weight:700; }
+    body.article-immersive [contenteditable="true"] { outline:none;border-radius:5px;box-shadow:inset 0 0 0 1px transparent;transition:box-shadow .15s ease,background .15s ease; }
+    body.article-immersive [contenteditable="true"]:hover { box-shadow:inset 0 0 0 1px var(--line); }
+    body.article-immersive [contenteditable="true"]:focus { box-shadow:inset 0 0 0 2px rgba(23,86,65,.28);background:rgba(231,240,235,.42); }
+    body.article-immersive [contenteditable="true"]:empty::before { content:attr(data-placeholder);color:var(--muted); }
+    body.article-immersive .article-chat-panel { position:static;height:100%;max-height:none;overflow:hidden; }
+    body.article-immersive .chat-messages { max-height:none; min-height:40px; }
+    body.article-immersive .chat-composer textarea { min-height:52px; }
+    .monitor-layout { grid-template-columns:minmax(0,1fr) minmax(330px,380px); }
+    .monitor-layout .panel-head { flex-wrap:wrap;row-gap:10px; }
+    .monitor-layout .pager { width:100%;min-width:0;justify-content:flex-end; }
+    #monitor-workflows,#audit-list { max-height:480px;overflow-y:auto;overscroll-behavior:contain;padding-right:3px; }
+    .pager { display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap;min-width:270px; }
+    .pager select { height:30px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);padding:0 6px;font-size:12px; }
+    .page-info { min-width:86px;text-align:center;color:var(--muted);font-size:12px;white-space:nowrap; }
+    .component-grid { display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px; }
+    .component-tile { border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--panel);min-height:92px; }
+    .component-tile strong { display:block;font-size:13px;margin-bottom:6px; }
+    .alert-item { border-left:3px solid var(--amber);background:var(--amber-soft);padding:10px 12px;font-size:12px;margin-bottom:8px; }
+    .alert-item.critical { border-color:var(--red);background:var(--red-soft); }
+    .vision-result { margin-top:8px;padding:10px;background:var(--canvas);border-radius:6px;font-size:12px;white-space:pre-wrap;max-height:150px;overflow:auto; }
+    .asset-thumb { width:96px;height:54px;object-fit:cover;border-radius:5px;border:1px solid var(--line);display:block; }
+    .toast { position:fixed; right:24px; bottom:24px; max-width:420px; background:var(--ink); color:var(--canvas); padding:12px 14px; border-radius:6px; box-shadow:0 12px 34px rgba(0,0,0,.2); display:none; font-size:13px; z-index:20; }
+    .theme-switcher { display:flex; align-items:center; gap:7px; }
+    .theme-dot { width:20px;height:20px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0; }
+    .theme-dot.active { box-shadow:0 0 0 2px var(--green); }
+    .login-overlay { position:fixed; inset:0; background:var(--overlay); display:none; z-index:50; padding:min(5vw,64px); }
+    .auth-shell { width:min(1120px,100%); height:100%; display:grid; grid-template-columns:minmax(0,1fr) minmax(400px,470px); gap:min(6vw,82px); align-items:center; color:#f3f7f5; }
+    .auth-story { min-width:0; }
+    .auth-brand { display:flex; align-items:center; gap:14px; margin-bottom:38px; }
+    .auth-brand-mark { width:52px;height:52px;border-radius:8px;background:var(--mark-bg);color:var(--mark-ink);display:grid;place-items:center;font-size:22px;font-weight:800; }
+    .auth-kicker { display:inline-flex;align-items:center;height:27px;padding:0 11px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:700;letter-spacing:0; }
+    .auth-story h2 { margin:20px 0 14px; font-size:clamp(34px,4vw,55px); line-height:1.08; max-width:660px; }
+    .auth-story p { margin:0; max-width:590px; color:rgba(243,247,245,.78); font-size:15px; line-height:1.8; }
+    .auth-proof { display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:10px;margin-top:38px; }
+    .auth-proof div { border-left:3px solid var(--mark-bg);padding:2px 0 2px 12px; }
+    .auth-proof strong { display:block;font-size:18px; }
+    .auth-proof span { font-size:12px;color:rgba(243,247,245,.68); }
+    .auth-theme-row { display:flex;gap:8px;margin-top:38px; }
+    .auth-theme-row .theme-dot { border-color:rgba(255,255,255,.55); }
+    .auth-card { background:var(--panel); color:var(--ink); border-radius:8px; padding:30px; box-shadow:0 26px 70px rgba(0,0,0,.3); }
+    .auth-tabs { display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--canvas);border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:22px; }
+    .auth-tab { height:35px;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;font-size:13px; }
+    .auth-tab.active { background:var(--panel);color:var(--green);font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .auth-card h2 { margin:0 0 8px; }
+    .auth-card p { margin:0 0 20px; color:var(--muted); font-size:13px; }
+    .auth-disabled { border-left:4px solid var(--amber);background:var(--amber-soft);padding:12px 14px;color:var(--ink);font-size:13px;margin-bottom:16px; }
+    .spinner { width:14px; height:14px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; display:none; }
+    .loading .spinner { display:inline-block; }
+    /* ---- 设置页 ---- */
+    .settings-hint { border-left:4px solid var(--amber); background:var(--amber-soft); padding:12px 14px; font-size:13px; line-height:1.7; margin-bottom:14px; border-radius:0 8px 8px 0; }
+    .actions .status:empty, .status:empty { display:none; }
+    .settings-hint.ok { border-left-color:var(--green); background:var(--green-soft); }
+    .settings-provider { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+    .provider-card { border:1px solid var(--line); border-radius:8px; padding:14px; cursor:pointer; background:var(--panel); }
+    .provider-card.selected { border-color:var(--green); box-shadow:0 0 0 2px rgba(23,86,65,.15); background:var(--green-soft); }
+    .provider-card strong { display:block; font-size:14px; margin-bottom:4px; }
+    .provider-card small { color:var(--muted); font-size:12px; line-height:1.5; display:block; }
+    .provider-card .tag { display:inline-block; margin-top:8px; font-size:10.5px; border-radius:4px; padding:1px 7px; background:var(--canvas); color:var(--muted); border:1px solid var(--line); }
+    /* ---- 中文排版工具栏 ---- */
+    .article-editor-toolbar .fmt-select { height:28px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--ink); font-size:11.5px; padding:0 4px; }
+    .article-editor-toolbar span.fmt-label, .article-editor-toolbar span.divider { min-width:0 !important; }
+    .article-editor-toolbar span.fmt-label { width:auto; margin-left:6px; }
+    .article-editor-toolbar span.divider { width:1px; min-height:18px; }
+    .article-editor-toolbar .fmt-label { font-size:10.5px; color:var(--muted); margin-left:4px; }
+    .article-editor-toolbar .divider { width:1px; height:20px; background:var(--line); margin:0 3px; }
+    .fmt-applied { outline:1px dashed var(--green); outline-offset:2px; border-radius:4px; }
+    .block-appear { animation:block-in .45s ease both; }
+    @keyframes block-in { from { opacity:0; transform:translateY(6px); background:var(--green-soft); } to { opacity:1; transform:none; } }
+    .chat-tool.running { color:var(--amber); border-color:var(--amber); }
+    .chat-notice { align-self:stretch; border:1px dashed var(--amber); background:var(--amber-soft); color:var(--ink); border-radius:7px; padding:8px 10px; font-size:12px; line-height:1.6; }
+    /* ---- 排期构建器 ---- */
+    .schedule-modes { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
+    .schedule-modes button { height:30px; border:1px solid var(--line); border-radius:999px; background:var(--panel); color:var(--muted); font-size:12px; cursor:pointer; padding:0 12px; }
+    .schedule-modes button.active { border-color:var(--green); background:var(--green); color:#fff; font-weight:700; }
+    .schedule-preview { background:var(--canvas); border:1px solid var(--line); border-radius:6px; padding:10px 12px; font-size:12px; color:var(--muted); margin-top:10px; line-height:1.7; }
+    .schedule-preview code { font-family:ui-monospace,Consolas,monospace; color:var(--green); }
+    /* ---- 窗口自适应：窄视口逐级收纳 ---- */
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .process-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+      .monitor-layout { grid-template-columns: 1fr; }
+      .component-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+      .settings-provider { grid-template-columns: 1fr; }
+      .article-workbench { grid-template-columns: minmax(0, 1fr) 6px calc(var(--chat-w, clamp(280px, 34vw, 520px)) * var(--czw,1)); }
+    }
+    @media (max-width: 980px) {
+      .topnav { flex-wrap: wrap; height: auto; min-height: 54px; padding: 6px 10px; row-gap: 4px; }
+      .topnav .search { display: none; }
+      .app { grid-template-columns: var(--side-w, clamp(160px, 20vw, 320px)) 6px 1fr; }
+      .side { top: 0; height: calc(100vh - 0px); }
+      .side-head { flex-wrap: wrap; }
+      .pager { min-width: 0; }
+    }
+    @media (max-width: 820px) {
+      .app { grid-template-columns: var(--side-w, clamp(150px, 22vw, 280px)) 6px 1fr; }
+      body.article-immersive .topnav { max-height: 96px; overflow-y: auto; }
+    }
+    @media (max-width: 980px) {
+      body.article-immersive .article-workbench { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(200px, 40%); }
+      .panel-resizer { display: none; }
+      body.article-immersive .article-chat-panel { height: 100%; max-height: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topnav">
+    <button class="icon-btn" id="topnav-side-toggle" type="button" title="显示 / 隐藏边栏"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
+    <div class="brand">
+      <div class="brand-mark">万</div>
+      <div class="brand-copy"><strong>万仞</strong><span>Content Operations</span></div>
+    </div>
+    <button class="nav-button active" data-view="workspace" type="button">⌂ 工作台</button>
+    <button class="nav-button" data-view="process" type="button">⇉ 流程</button>
+    <button class="nav-button" data-view="sessions" type="button">◧ 任务</button>
+    <button class="nav-button" data-view="articles" type="button">✎ 文章</button>
+    <button class="nav-button" data-view="assets" type="button">▣ 素材</button>
+    <button class="nav-button" data-view="accounts" type="button">◈ 公众号</button>
+    <button class="nav-button" data-view="styles" type="button">▤ 样式</button>
+    <button class="nav-button" data-view="monitor" type="button">◎ 监控</button>
+    <button class="nav-button" data-view="users" type="button">⚙ 用户</button>
+    <button class="nav-button" data-view="settings" type="button">◭ 设置</button>
+    <span class="nav-spacer"></span>
+    <input id="global-search" class="search" placeholder="搜索对话 / 文章 / 素材…" />
+    <span class="topnav-user"><span id="current-user">V1 本地闭环</span><button id="logout-button" class="btn small" type="button" style="display:none">⇦ 退出</button></span>
+  </header>
+  <aside class="side" id="chat-sidebar">
+    <div class="side-head"><strong>对话</strong><span style="display:flex;gap:6px;align-items:center"><button id="new-chat-button" type="button">＋ 新对话</button><button id="import-draft-button" type="button" title="把微信草稿箱里的文章导入为对话">⇩ 导入</button><button class="icon-btn" id="side-collapse" type="button" title="收起边栏"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button></span></div>
+    <div id="chat-tree"></div>
+    <div class="side-foot"><span id="capability-note">文本：内置适配器 · 视觉：多模态</span></div>
+  </aside>
+  <div class="side-resizer" title="左右拖动调整边栏宽度（双击恢复默认）" role="separator" aria-orientation="vertical"></div>
+  <main class="main">
+    <header class="topbar">
+      <div><h1 id="view-title">工作台</h1><div class="sub" id="view-sub">从素材到人工审核、公众号草稿与发布的完整闭环</div></div>
+    </header>
+
+    <section id="workspace-view">
+      <div class="metrics">
+        <div class="metric"><label>草稿文章</label><strong id="m-drafts">0</strong><span>生成与修订中</span></div>
+        <div class="metric"><label>待人工处理</label><strong id="m-waiting">0</strong><span>需要编辑决策</span></div>
+        <div class="metric"><label>队列 / 运行 / 定时</label><strong><span id="m-queued">0</span> / <span id="m-running">0</span> / <span id="m-scheduled">0</span></strong><span>后台任务状态</span></div>
+        <div class="metric"><label>AI Tokens / 成本</label><strong><span id="m-tokens">0</span> / <span id="m-ai-cost">$0</span></strong><span id="m-ai-budget">本月 $0</span></div>
+      </div>
+      <div class="layout">
+        <div>
+          <section class="panel">
+            <div class="panel-head"><div><h2>新建内容任务</h2><small>一次任务即一个 Session</small></div><span class="status">SESSION</span></div>
+            <div class="panel-body">
+              <div class="grid-2">
+                <div class="field"><label>任务名称</label><input id="session-title" maxlength="120" placeholder="例：新能源车型发布解读" /></div>
+                <div class="field"><label>公众号</label><select id="session-account"></select></div>
+              </div>
+              <div class="grid-2">
+                <div class="field"><label>目标读者</label><input id="session-audience" placeholder="已有用户 / 行业读者" /></div>
+                <div class="field"><label>语气</label><input id="session-tone" value="专业、清晰、克制" /></div>
+              </div>
+              <div class="field"><label>任务目标</label><textarea id="session-goal" placeholder="写一篇发布解读，突出可验证参数和使用场景"></textarea></div>
+              <div class="field"><label>硬性要求（逗号分隔）</label><input id="session-requirements" placeholder="保留数据来源,避免夸大" /></div>
+              <div class="actions"><button id="create-session" class="btn primary" type="button">＋ 创建任务</button><span id="session-message" class="status" role="status" aria-live="polite"></span></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><div><h2>任务素材</h2><small>支持 TXT / MD / CSV / JSON / XLSX / PDF / DOCX / 图片 / MP4</small></div><span id="asset-count" class="status">0</span></div>
+            <div class="panel-body">
+              <div class="upload">
+                <input id="asset-input" type="file" multiple />
+                <div class="actions">
+                  <button id="upload-assets" class="btn primary" type="button">⇧ 上传素材</button>
+                  <button id="generate-article" class="btn amber" type="button">✦ 生成并预审</button>
+                  <input id="generate-instruction" style="height:36px;flex:1;min-width:220px;border:1px solid var(--line);border-radius:6px;padding:0 10px" placeholder="生成指令（可选）" />
+                </div>
+              </div>
+              <div id="asset-list"></div>
+            </div>
+          </section>
+
+        </div>
+        <div>
+          <section class="panel">
+            <div class="panel-head"><div><h2>最近任务运行</h2><small>Workflow Trace</small></div></div>
+            <div class="panel-body" id="workflow-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div><h2>工作流健康度</h2><small>失败率与系统状态</small></div></div>
+            <div class="health"><div class="health-score" id="health-score">100</div><div class="muted" style="margin-top:10px">本地服务正常</div></div>
+          </section>
+        </div>
+      </div>
+
+      <section class="panel article-review-panel" id="article-review-panel">
+        <div class="panel-head">
+          <div><h2>文章审核</h2><small>AI 规则预审 + 人工最终决策 + 连续对话改稿</small></div>
+          <span id="article-status" class="status">未生成</span>
+        </div>
+        <div class="panel-body" id="article-panel"><div class="empty">先生成文章，再进入审核</div></div>
+      </section>
+    </section>
+
+    <section id="sessions-view" class="view-section" hidden>
+      <section class="panel"><div class="panel-head"><div><h2>内容任务</h2><small>按任务查看状态与产出</small></div><button class="btn primary" onclick="switchView('workspace')" type="button">＋ 新建任务</button></div><div class="panel-body" id="session-list"></div></section>
+    </section>
+
+    <section id="articles-view" class="view-section" hidden>
+      <section class="panel">
+        <div class="panel-head">
+          <div><h2>文章审核</h2><small>按公众号草稿箱视图查看封面、时间与状态</small></div>
+          <div class="pager">
+            <label class="muted" for="article-status-filter">状态</label>
+            <select id="article-status-filter" aria-label="文章状态筛选">
+              <option value="ALL">全部</option>
+              <option value="NEEDS_REVISION">待修订</option>
+              <option value="AI_REVIEWED">待人工审核</option>
+              <option value="HUMAN_APPROVED">已通过</option>
+              <option value="WECHAT_DRAFT">微信草稿</option>
+              <option value="PUBLISHED">已发布</option>
+              <option value="REJECTED">已驳回</option>
+            </select>
+            <button id="sync-draft-status" class="btn small" type="button">⟳ 同步微信草稿状态</button>
+            <span id="article-total" class="status">0</span>
+          </div>
+        </div>
+        <div class="panel-body" id="article-list"></div>
+      </section>
+    </section>
+
+    <section id="assets-view" class="view-section" hidden>
+      <section class="panel"><div class="panel-head"><div><h2>素材库</h2><small>按公众号 → 对话分组；每个对话的素材相互独立</small></div><button class="btn" onclick="uploadToCurrentDialog()" type="button">⇧ 上传到当前对话</button></div><div class="panel-body" id="asset-library"></div></section>
+    </section>
+
+    <section id="styles-view" class="view-section" hidden>
+      <section class="panel">
+        <div class="panel-head">
+          <div><h2>样式模版</h2><small>8 种内置排版气质 + 导入的自定义样式；点卡片看整篇排版样例，提案与编辑器同源可选</small></div>
+          <div class="actions"><button id="import-style-button" class="btn primary" type="button">⇩ 导入样式</button></div>
+        </div>
+        <div class="panel-body"><div id="style-gallery" class="style-gallery"></div></div>
+      </section>
+    </section>
+
+    <section id="accounts-view" class="view-section" hidden>
+      <div class="layout">
+        <section class="panel"><div class="panel-head"><div><h2>公众号</h2><small>多账号与样式配置</small></div><span id="account-total" class="status">0</span></div><div class="panel-body" id="account-list"></div></section>
+        <section class="panel"><div class="panel-head"><div><h2>新增公众号</h2><small>密钥仅保存在环境变量</small></div></div><div class="panel-body">
+          <div class="field"><label>名称</label><input id="account-name" placeholder="品牌服务号" /></div>
+          <div class="field"><label>AppID</label><input id="account-app-id" placeholder="wx..." /></div>
+          <div class="grid-3">
+            <div class="field"><label>主色</label><input id="account-accent" value="#175641" /></div>
+            <div class="field"><label>正文色</label><input id="account-text" value="#262626" /></div>
+            <div class="field"><label>字体</label><select id="account-font"><option value="system">系统</option><option value="serif">衬线</option><option value="sans">无衬线</option></select></div>
+          </div>
+          <div class="field"><label>回调域名（可选，形如 https://api.example.com）</label><input id="account-callback-base" placeholder="https://your-domain.com" /></div>
+          <div class="actions"><button id="create-account" class="btn primary" type="button">＋ 保存账号</button></div>
+        </div></section>
+      </div>
+    </section>
+
+    <section id="monitor-view" class="view-section" hidden>
+      <div class="metrics">
+        <div class="metric"><label>健康度</label><strong id="monitor-health">100</strong><span>失败率驱动</span></div>
+        <div class="metric"><label>排队任务</label><strong id="monitor-queued">0</strong><span>待 Worker 认领</span></div>
+        <div class="metric"><label>运行任务</label><strong id="monitor-running">0</strong><span>执行中</span></div>
+        <div class="metric"><label>审计记录</label><strong id="monitor-audits">0</strong><span>关键动作留痕</span></div>
+      </div>
+      <section class="panel">
+        <div class="panel-head"><div><h2>系统健康</h2><small>数据库、存储、队列、工作流、AI 与发布配置</small></div><span id="system-health-status" class="status">检查中</span></div>
+        <div class="panel-body">
+          <div id="health-component-list" class="component-grid"></div>
+          <div id="alert-list" style="margin-top:14px"></div>
+        </div>
+      </section>
+      <div class="layout monitor-layout">
+        <section class="panel">
+          <div class="panel-head">
+            <div><h2>任务运行</h2><small>点击查看节点轨迹</small></div>
+            <div class="pager">
+              <label class="muted" for="workflow-page-size">每页</label>
+              <select id="workflow-page-size" aria-label="任务运行每页条数">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+              <button id="workflow-prev-page" class="btn small" type="button">上一页</button>
+              <span id="workflow-page-info" class="page-info">1 / 1 · 0 条</span>
+              <button id="workflow-next-page" class="btn small" type="button">下一页</button>
+            </div>
+          </div>
+          <div class="panel-body"><div id="monitor-workflows"></div><div id="workflow-detail"></div></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div><h2>操作审计</h2><small>关键动作留痕</small></div>
+            <div class="pager">
+              <label class="muted" for="audit-page-size">每页</label>
+              <select id="audit-page-size" aria-label="操作审计每页条数">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+              <button id="audit-prev-page" class="btn small" type="button">上一页</button>
+              <span id="audit-page-info" class="page-info">1 / 1 · 0 条</span>
+              <button id="audit-next-page" class="btn small" type="button">下一页</button>
+            </div>
+          </div>
+          <div class="panel-body" id="audit-list"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="users-view" class="view-section" hidden>
+      <div class="layout">
+        <section class="panel">
+          <div class="panel-head"><div><h2>用户与权限</h2><small>工作区成员、角色和最近登录</small></div><span id="user-total" class="status">0</span></div>
+          <div class="panel-body" id="user-list"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h2>新增用户</h2><small>密码使用 PBKDF2 哈希保存</small></div></div>
+          <div class="panel-body">
+            <div class="field"><label>邮箱</label><input id="user-email" type="email" placeholder="editor@example.com" /></div>
+            <div class="field"><label>姓名</label><input id="user-name" placeholder="内容编辑" /></div>
+            <div class="field"><label>初始密码（至少8位）</label><input id="user-password" type="password" placeholder="设置安全密码" /></div>
+            <div class="field"><label>角色</label><select id="user-role">
+              <option value="EDITOR">EDITOR · 编辑/生成/改稿</option>
+              <option value="REVIEWER">REVIEWER · 审核/终审</option>
+              <option value="PUBLISHER">PUBLISHER · 草稿/发布</option>
+              <option value="VIEWER">VIEWER · 只读</option>
+              <option value="ADMIN">ADMIN · 管理员</option>
+            </select></div>
+            <div class="actions"><button id="create-user" class="btn primary" type="button">＋ 创建用户</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="process-view" class="view-section" hidden>
+      <section class="panel">
+        <div class="panel-head"><div><h2>生产流程</h2><small>查看当前任务整体流程、所处阶段、节点进度和阶段内容</small></div><button class="btn primary" onclick="switchView('sessions')" type="button">选择任务</button></div>
+        <div class="panel-body">
+          <div id="process-current"></div>
+          <div id="process-stage-list" style="margin-top:16px"></div>
+          <div id="process-stage-detail" style="margin-top:16px"></div>
+        </div>
+      </section>
+    </section>
+
+    <section id="settings-view" class="view-section" hidden>
+      <div>
+        <section class="panel">
+          <div class="panel-head"><div><h2>视觉分析</h2><small>图片如何被 AI"看见"</small></div><span id="vision-config-status" class="status">检查中</span></div>
+          <div class="panel-body">
+            <div id="vision-hint" class="settings-hint"></div>
+            <div class="settings-provider" id="vision-provider-cards" style="grid-template-columns:1fr 1fr">
+              <div class="provider-card" data-provider="multimodal" data-mode="multimodal">
+                <strong>多模态视觉大模型（推荐）</strong>
+                <small>用多模态大模型直接看图，上下文连贯。<b>主模型本身支持图像输入时下方留空即可</b>（自动用主模型配置）；主模型是纯文本时，在下方填写单独的多模态模型。</small>
+                <span class="tag">默认</span>
+              </div>
+              <div class="provider-card" data-provider="vidlens" data-mode="vidlens">
+                <strong>VidLens 本地脚本</strong>
+                <small>调用本地 VidLens CLI 分析图片，适合完全离线环境；需可用的 WANREN_VIDLENS 路径，无需配置模型。</small>
+                <span class="tag">离线可选</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      <div class="layout">
+        <div>
+          <section class="panel" id="vision-config-panel" hidden>
+            <div class="panel-head"><div><h2>多模态视觉模型配置</h2><small>留空 = 自动使用主模型配置；填写 = 单独配置（主模型可纯文本）</small></div><span id="vision-model-status" class="status">未配置</span></div>
+            <div class="panel-body">
+              <div class="field"><label>API 地址（根地址）</label><input id="vision-api-base" placeholder="https://open.bigmodel.cn/api/coding/paas/v4" /></div>
+              <div class="field"><label>模型名（须支持图像输入）</label><input id="vision-model" placeholder="glm-4.5v / gpt-4o-mini 等" /></div>
+              <div class="field"><label>API Key（加密保存，留空不修改）</label><input id="vision-api-key" type="password" placeholder="留空保持现有密钥" /></div>
+              <div class="actions"><button id="save-vision-settings" class="btn primary" type="button">保存视觉设置</button><button id="test-vision-connection" class="btn" type="button">◎ 检测连接</button></div>
+              <div class="actions" style="margin-top:8px"><span id="vision-save-message" class="status" role="status" aria-live="polite"></span><span id="vision-test-result" class="status" role="status"></span></div>
+            </div>
+          </section>
+          <section class="panel" id="text-config-panel" hidden>
+            <div class="panel-head"><div><h2>主文本模型</h2><small>负责文章生成与协作编辑；环境变量为默认值，此处可覆盖</small></div><span id="text-config-status" class="status">本地适配器</span></div>
+            <div class="panel-body">
+              <div class="field"><label>提供商</label><select id="text-provider-input"><option value="local">本地适配器（离线）</option><option value="openai_compatible">OpenAI-compatible</option></select></div>
+              <div class="field"><label>API 地址（根地址）</label><input id="text-api-base" placeholder="https://open.bigmodel.cn/api/coding/paas/v4" /></div>
+              <div class="field"><label>模型名</label><input id="text-model-input" placeholder="glm-5.3-flash" /></div>
+              <div class="field"><label>API Key（加密保存，留空不修改）</label><input id="text-api-key" type="password" placeholder="留空保持现有密钥" /></div>
+              <div class="actions"><button id="save-text-settings" class="btn primary" type="button">保存主模型设置</button><button id="test-text-connection" class="btn" type="button">◎ 检测连接</button></div>
+              <div class="actions" style="margin-top:8px"><span id="text-save-message" class="status" role="status" aria-live="polite"></span><span id="text-test-result" class="status" role="status"></span></div>
+              <p class="muted" style="margin-top:12px">协作编辑（AI 逐块改稿）需要 OpenAI-compatible 模型并支持工具调用；本地适配器自动降级为整篇修订模式。</p>
+            </div>
+          </section>
+          <section class="panel" id="vidlens-status-panel" hidden>
+            <div class="panel-head"><div><h2>VidLens 状态</h2><small>本地 CLI 脚本与内部视觉模型（可与主模型不同厂家）</small></div><span id="vidlens-status-badge" class="status">检查中</span></div>
+            <div class="panel-body">
+              <div id="vidlens-path" class="muted"></div>
+              <div class="field" style="margin-top:12px"><label>内部视觉模型 API 地址</label><input id="vidlens-api-url" placeholder="https://open.bigmodel.cn/api/coding/paas/v4" /></div>
+              <div class="field"><label>内部视觉模型名</label><input id="vidlens-model" placeholder="glm-5.3-flash / gpt-4o-mini 等" /></div>
+              <div class="field"><label>API Key（加密保存，留空不修改）</label><input id="vidlens-api-key" type="password" placeholder="留空保持现有密钥" /></div>
+              <div class="actions"><button id="save-vidlens-settings" class="btn primary" type="button">保存 VidLens 设置</button><button id="test-vidlens-connection" class="btn" type="button">◎ 检测连接</button></div>
+              <div class="actions" style="margin-top:8px"><span id="vidlens-save-message" class="status" role="status" aria-live="polite"></span><span id="vidlens-test-result" class="status" role="status"></span></div>
+            </div>
+          </section>
+        </div>
+        <div>
+          <section class="panel">
+            <div class="panel-head"><div><h2>外观</h2><small>主题色用顶栏圆点切换（本地记忆）</small></div></div>
+            <div class="panel-body">
+              <div class="field"><label>主题风格</label><div class="theme-switcher" id="settings-theme-switcher"></div></div>
+              <div id="text-model-note" class="settings-hint"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+
+<div id="import-draft-modal" style="display:none" role="dialog" aria-modal="true" aria-label="导入微信草稿">
+  <div class="new-chat-card">
+    <div class="new-chat-head">
+      <strong>导入微信草稿</strong>
+      <button type="button" class="icon-btn" onclick="closeImportDrafts()" aria-label="关闭"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="new-chat-body">
+      <select id="import-draft-account" aria-label="公众号" onchange="openImportDrafts()"></select>
+      <div id="import-draft-list"></div>
+    </div>
+  </div>
+</div>
+<div id="new-chat-modal" style="display:none" role="dialog" aria-modal="true" aria-label="新对话">
+  <div class="new-chat-card">
+    <div class="new-chat-head">
+      <strong>新对话</strong>
+      <button type="button" class="icon-btn" onclick="closeNewChatModal()" aria-label="关闭"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="new-chat-body">
+      <textarea id="new-chat-input" rows="5" placeholder="描述你想写的文章…（可拖入或粘贴素材，随首条消息一起发送）"></textarea>
+      <div class="chat-attachments" id="new-chat-attachments" hidden></div>
+      <div class="new-chat-style-row">
+        <span class="style-row-label">排版样式</span>
+        <div class="style-chip-strip" id="new-chat-style-row"></div>
+      </div>
+      <div class="new-chat-actions">
+        <select id="new-chat-account" aria-label="发布到公众号"></select>
+        <button id="new-chat-send" class="btn primary" type="button" onclick="submitNewChat()">开始对话 ➤</button>
+      </div>
+      <small class="muted">第一轮发送后进入编辑模式：中间实时查看/手动修改文章，右侧继续对话改稿。</small>
+    </div>
+  </div>
+</div>
+<div id="style-preview-modal" style="display:none" role="dialog" aria-modal="true" aria-label="排版样例">
+  <div class="new-chat-card" style="width:min(764px,96vw)">
+    <div class="new-chat-head">
+      <strong id="style-preview-title">排版样例</strong>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" class="btn small" onclick="copyStylePreviewToWechat()" title="复制富文本，到公众号编辑器直接粘贴">⧉ 复制到公众号</button>
+        <button type="button" class="icon-btn" onclick="closeStylePreview()" aria-label="关闭"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <div class="style-sample-bar" id="style-sample-bar"></div>
+    <iframe id="style-preview-frame" title="整篇排版样例"></iframe>
+  </div>
+</div>
+<div id="style-import-modal" style="display:none" role="dialog" aria-modal="true" aria-label="导入样式">
+  <div class="new-chat-card" style="width:min(640px,94vw)">
+    <div class="new-chat-head">
+      <strong>导入样式模版</strong>
+      <button type="button" class="icon-btn" onclick="closeStyleImport()" aria-label="关闭"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="new-chat-body">
+      <div class="grid-2">
+        <div class="field"><label>样式名称</label><input id="style-import-name" placeholder="我的品牌风" /></div>
+        <div class="field"><label>气质（可选）</label><input id="style-import-vibe" placeholder="温暖、克制" /></div>
+      </div>
+      <div class="field"><label>适用内容（可选）</label><input id="style-import-suits" placeholder="品牌周报、活动预告" /></div>
+      <div class="field"><label>样式令牌 JSON（font 支持 songti / fangsong / heiti / kai 枚举；浅底/边框/辅助色留空会由主色自动派生；可先用「⇪ 导出」拿一份改）</label><textarea id="style-import-textarea" class="code" placeholder='{"accent":"#7C3AED","text":"#333333","title":"#1F1030","font":"kai","radius":8,"header":"center","section_heading":"dot","quote":"soft_card","end":"tip"}'></textarea></div>
+      <div class="actions"><button id="style-import-submit" class="btn primary" type="button" onclick="submitStyleImport()">⇩ 导入</button><span id="style-import-message" class="status"></span></div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+<div id="login-overlay" class="login-overlay">
+  <div class="auth-shell">
+    <section class="auth-story">
+      <div class="auth-brand">
+        <div class="auth-brand-mark">万</div>
+        <div><strong style="display:block;font-size:18px">万仞</strong><span style="font-size:12px;color:rgba(243,247,245,.68)">Content Operations</span></div>
+      </div>
+      <span class="auth-kicker">微信公众号内容生产与发布</span>
+      <h2>把一次任务资料，变成可审核、可追踪的公众号文章</h2>
+      <p>万仞围绕 Session 组织素材、视觉理解、AI 生成、规则预审、人工终审和微信草稿发布。团队可以看到每个阶段卡在哪里，发布前保留明确的人工边界。</p>
+      <div class="auth-proof">
+        <div><strong>8 阶段</strong><span>生产流程追踪</span></div>
+        <div><strong>5 类角色</strong><span>编辑 / 审核 / 发布分权</span></div>
+        <div><strong>7 项健康</strong><span>数据库到发布适配</span></div>
+      </div>
+      <div class="auth-theme-row theme-switcher" id="auth-theme-switcher"></div>
+    </section>
+    <section class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="login-tab" type="button">登录</button>
+        <button class="auth-tab" id="register-tab" type="button">注册</button>
+      </div>
+      <div id="auth-login-panel">
+        <h2>进入工作台</h2>
+        <p>使用邮箱密码登录。</p>
+        <div class="field"><label>邮箱</label><input id="login-email" type="email" value="admin@wanren.local" autocomplete="email" /></div>
+        <div class="field"><label>密码</label><input id="login-password" type="password" placeholder="输入密码" autocomplete="current-password" /></div>
+        <div class="actions"><button id="login-button" class="btn primary" type="button">⇨ 登录</button><span id="login-message" class="muted"></span></div>
+      </div>
+      <div id="auth-register-panel" hidden>
+        <h2>创建账号</h2>
+        <p>注册后可创建内容任务、上传素材并生成文章。</p>
+        <div id="register-disabled" class="auth-disabled" hidden>注册功能暂时关闭，请联系管理员。</div>
+        <div class="field"><label>邮箱</label><input id="register-email" type="email" placeholder="you@example.com" autocomplete="email" /></div>
+        <div class="field"><label>姓名（可选）</label><input id="register-name" maxlength="100" placeholder="内容编辑" /></div>
+        <div class="field"><label>密码</label><input id="register-password" type="password" placeholder="至少8位，包含字母和数字" autocomplete="new-password" /></div>
+        <div class="field"><label>确认密码</label><input id="register-confirm" type="password" placeholder="再次输入密码" autocomplete="new-password" /></div>
+        <div class="actions"><button id="register-button" class="btn primary" type="button">＋ 创建账号</button><span id="register-message" class="muted"></span></div>
+      </div>
+    </section>
+  </div>
+</div>
+<script src="/app.js?v=20260930r1"></script>
+</body>
+</html>
+

@@ -1,0 +1,96 @@
+name: wanren
+
+services:
+  api:
+    image: wanren:${WANREN_IMAGE_TAG:-latest}
+    build:
+      context: .
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      WANREN_DB_PATH: /app/data/wanren.sqlite3
+      WANREN_STORAGE_PATH: /app/storage
+      WANREN_PUBLISHER: ${WANREN_PUBLISHER:-mock}
+      WANREN_AUTH_MODE: ${WANREN_AUTH_MODE:-dev}
+      WANREN_ADMIN_EMAIL: ${WANREN_ADMIN_EMAIL:-admin@wanren.local}
+      WANREN_ADMIN_PASSWORD: ${WANREN_ADMIN_PASSWORD:-}
+      WANREN_WORKFLOW_MODE: background
+      WANREN_EMBEDDED_WORKER: "false"
+      WANREN_WORKER_POLL_SECONDS: ${WANREN_WORKER_POLL_SECONDS:-1}
+      WANREN_TEXT_PROVIDER: ${WANREN_TEXT_PROVIDER:-local}
+      WANREN_TEXT_MODEL: ${WANREN_TEXT_MODEL:-}
+      WANREN_TEXT_API_BASE: ${WANREN_TEXT_API_BASE:-https://api.openai.com/v1}
+      WANREN_TEXT_API_KEY: ${WANREN_TEXT_API_KEY:-}
+      WANREN_TEXT_TIMEOUT_SECONDS: ${WANREN_TEXT_TIMEOUT_SECONDS:-120}
+      WANREN_TEXT_MAX_RETRIES: ${WANREN_TEXT_MAX_RETRIES:-2}
+      WANREN_TEXT_FALLBACK_LOCAL: ${WANREN_TEXT_FALLBACK_LOCAL:-false}
+      WANREN_TEXT_INPUT_PRICE_PER_M: ${WANREN_TEXT_INPUT_PRICE_PER_M:-0}
+      WANREN_TEXT_OUTPUT_PRICE_PER_M: ${WANREN_TEXT_OUTPUT_PRICE_PER_M:-0}
+      WANREN_TEXT_MODEL_PRICES: ${WANREN_TEXT_MODEL_PRICES:-}
+      WANREN_TEXT_MONTHLY_BUDGET_USD: ${WANREN_TEXT_MONTHLY_BUDGET_USD:-0}
+      WANREN_SEARCH_PROVIDER: ${WANREN_SEARCH_PROVIDER:-duckduckgo}
+      WANREN_SEARCH_TIMEOUT_SECONDS: ${WANREN_SEARCH_TIMEOUT_SECONDS:-15}
+      WANREN_SEARCH_MAX_RESULTS: ${WANREN_SEARCH_MAX_RESULTS:-5}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      WANREN_WECHAT_CALLBACK_TOKEN: ${WANREN_WECHAT_CALLBACK_TOKEN:-}
+    volumes:
+      - wanren-data:/app/data
+      - wanren-storage:/app/storage
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    image: wanren:${WANREN_IMAGE_TAG:-latest}
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    command: ["python", "-m", "wanren.worker"]
+    healthcheck:
+      disable: true
+    environment:
+      WANREN_DB_PATH: /app/data/wanren.sqlite3
+      WANREN_STORAGE_PATH: /app/storage
+      WANREN_PUBLISHER: ${WANREN_PUBLISHER:-mock}
+      WANREN_AUTH_MODE: ${WANREN_AUTH_MODE:-dev}
+      WANREN_ADMIN_EMAIL: ${WANREN_ADMIN_EMAIL:-admin@wanren.local}
+      WANREN_ADMIN_PASSWORD: ${WANREN_ADMIN_PASSWORD:-}
+      WANREN_WORKFLOW_MODE: background
+      WANREN_EMBEDDED_WORKER: "true"
+      WANREN_WORKER_POLL_SECONDS: ${WANREN_WORKER_POLL_SECONDS:-1}
+      WANREN_TEXT_PROVIDER: ${WANREN_TEXT_PROVIDER:-local}
+      WANREN_TEXT_MODEL: ${WANREN_TEXT_MODEL:-}
+      WANREN_TEXT_API_BASE: ${WANREN_TEXT_API_BASE:-https://api.openai.com/v1}
+      WANREN_TEXT_API_KEY: ${WANREN_TEXT_API_KEY:-}
+      WANREN_TEXT_TIMEOUT_SECONDS: ${WANREN_TEXT_TIMEOUT_SECONDS:-120}
+      WANREN_TEXT_MAX_RETRIES: ${WANREN_TEXT_MAX_RETRIES:-2}
+      WANREN_TEXT_FALLBACK_LOCAL: ${WANREN_TEXT_FALLBACK_LOCAL:-false}
+      WANREN_TEXT_INPUT_PRICE_PER_M: ${WANREN_TEXT_INPUT_PRICE_PER_M:-0}
+      WANREN_TEXT_OUTPUT_PRICE_PER_M: ${WANREN_TEXT_OUTPUT_PRICE_PER_M:-0}
+      WANREN_TEXT_MODEL_PRICES: ${WANREN_TEXT_MODEL_PRICES:-}
+      WANREN_TEXT_MONTHLY_BUDGET_USD: ${WANREN_TEXT_MONTHLY_BUDGET_USD:-0}
+      WANREN_SEARCH_PROVIDER: ${WANREN_SEARCH_PROVIDER:-duckduckgo}
+      WANREN_SEARCH_TIMEOUT_SECONDS: ${WANREN_SEARCH_TIMEOUT_SECONDS:-15}
+      WANREN_SEARCH_MAX_RESULTS: ${WANREN_SEARCH_MAX_RESULTS:-5}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      WANREN_WECHAT_CALLBACK_TOKEN: ${WANREN_WECHAT_CALLBACK_TOKEN:-}
+    volumes:
+      - wanren-data:/app/data
+      - wanren-storage:/app/storage
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  wanren-data:
+  wanren-storage:

@@ -1,0 +1,34 @@
+# 生产覆盖层：与 compose.yaml 叠加使用
+#   docker compose -f compose.yaml -f compose.prod.yml --env-file deploy/env/prod.env up -d
+# 参考同类开源项目的生产基线：只读根文件系统、丢弃全部 Linux capabilities、
+# 禁止提权、CPU/内存限额与 tmpfs。
+services:
+  api:
+    read_only: true
+    user: "10001:10001"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    environment:
+      WANREN_AUTH_MODE: production
+
+  worker:
+    read_only: true
+    user: "10001:10001"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+    environment:
+      WANREN_AUTH_MODE: production

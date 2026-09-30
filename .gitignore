@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+.conda/
+data/
+storage/
+dist/
+tmp/
+node_modules/
+*.pyc
+*.sqlite3
+*.db
+# 本地示例素材（不入库）
+sample-paper-local.pdf
+reference-image-local.png

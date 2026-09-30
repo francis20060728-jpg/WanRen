@@ -1,0 +1,15 @@
+.git
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.venv
+.conda
+data
+storage
+dist
+node_modules
+__pycache__
+*.pyc
+*.sqlite3
+*.db
+参考案例图片.png

@@ -1,0 +1,75 @@
+万仞 WanRen 个人使用许可协议
+WanRen Personal Use License Agreement
+Version 1.0 / 版本 1.0
+
+【中文】
+
+版权所有 (c) 2026 万仞 WanRen 作者
+
+1. 授权范围
+   在遵守本协议的前提下，任何个人（"您"）可免费获得本软件源代码的副本，
+   并被授予以下权利：
+   a) 出于个人学习、研究、非商业用途，安装、使用、运行、修改本软件；
+   b) 为上述目的制作副本与备份。
+
+2. 限制条款（重要）
+   您不得：
+   a) 将本软件或其任何部分用于商业用途，包括但不限于：商业运营、有偿服务、
+      企业内部生产经营使用、产品集成后再行分发；
+   b) 出售、转售、出租、许可、转手或以任何形式有偿转让本软件或其衍生作品；
+   c) 移除、遮挡或修改本软件中的版权声明与本许可协议；
+   d) 将本软件用于任何违反法律法规的用途。
+
+3. 二次分发
+   禁止任何形式的收费二次分发。允许在完整保留本协议与版权声明的前提下，
+   出于非商业目的共享未修改的原始副本。
+
+4. 免责声明
+   本软件按"现状"提供，不附带任何明示或默示的担保。作者不对任何因使用或
+   无法使用本软件而产生的损失承担责任。
+
+5. 违约
+   一旦违反本协议，本许可自动终止，您须立即停止使用并销毁全部副本。
+
+本协议受中华人民共和国法律管辖。
+
+【English】
+
+Copyright (c) 2026 The WanRen Authors. All rights reserved.
+
+1. Grant of License
+   Subject to the terms of this agreement, any individual ("You") may obtain a copy
+   of the source code of this software free of charge and is granted the following
+   rights:
+   a) To install, use, run, and modify this software for personal study, research,
+      and non-commercial purposes;
+   b) To make copies and backups for the purposes above.
+
+2. Restrictions (IMPORTANT)
+   You may NOT:
+   a) Use this software, or any portion of it, for commercial purposes, including
+      but not limited to: commercial operation, paid services, internal business
+      production use, or redistribution integrated into a commercial product;
+   b) Sell, resell, rent, sublicense, transfer for consideration, or dispose of
+      this software or derivative works thereof in any paid form;
+   c) Remove, obscure, or alter any copyright notice or this license in the software;
+   d) Use this software for any purpose that violates applicable laws.
+
+3. Redistribution
+   Paid redistribution in any form is prohibited. Sharing unmodified original
+   copies for non-commercial purposes is permitted, provided that this license and
+   all copyright notices are retained in full.
+
+4. Disclaimer of Warranty
+   This software is provided "AS IS", without warranty of any kind. The authors
+   shall not be liable for any damages arising from the use of, or inability to
+   use, this software.
+
+5. Termination
+   Any violation of this agreement terminates it automatically, and You must
+   immediately cease using and destroy all copies.
+
+This agreement is governed by the laws of the People's Republic of China.
+
+NOTE: This is a custom source-available license for personal use only. It is NOT
+an open-source license as defined by the Open Source Initiative (OSI).

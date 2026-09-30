@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="mo">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>万仞 | 登录注册</title>
+  <link rel="stylesheet" href="/site.css" />
+</head>
+<body class="auth-page">
+<header class="auth-nav">
+  <a class="brand" href="/landing">
+    <span class="brand-mark" aria-hidden="true">万</span>
+    <span>
+      <span class="brand-name">万仞</span>
+      <span class="brand-subtitle">AI Content Operations</span>
+    </span>
+  </a>
+  <div class="landing-nav-actions">
+    <div class="theme-switcher" id="theme-switcher" aria-label="主题风格"></div>
+    <a class="site-button" href="/login">登录</a>
+    <a class="site-button primary" href="/register">注册</a>
+  </div>
+</header>
+
+<main class="auth-main">
+  <section class="auth-story">
+    <h1 id="auth-story-title">把素材、审核与发布放进一条透明流程</h1>
+    <p>万仞为每个内容任务保留素材上下文、文章版本、工作流节点和发布记录，让团队协作有据可查。</p>
+    <div class="auth-story-preview">
+      <img src="/assets/product-preview.png" alt="万仞工作台的生产流程与文章审核界面" />
+    </div>
+  </section>
+
+  <section class="auth-card" aria-labelledby="auth-title">
+    <h1 class="auth-title" id="auth-title">登录万仞</h1>
+    <p class="auth-copy" id="auth-copy">使用邮箱和密码进入工作台。</p>
+    <div id="register-disabled" class="notice" hidden>注册功能暂时关闭，请联系管理员。</div>
+
+    <form class="auth-form" id="login-form">
+      <div class="form-field">
+        <label for="login-email">邮箱</label>
+        <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
+      </div>
+      <div class="form-field">
+        <label for="login-password">密码</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="输入密码" />
+      </div>
+      <p class="form-error" id="login-error" role="alert"></p>
+      <button class="site-button primary" id="login-button" type="submit">
+        <span class="spinner" aria-hidden="true"></span><span>登录</span>
+      </button>
+    </form>
+
+    <form class="auth-form" id="register-form" hidden>
+      <div class="form-field">
+        <label for="register-email">邮箱</label>
+        <input id="register-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
+      </div>
+      <div class="form-field">
+        <label for="register-name">姓名</label>
+        <input id="register-name" name="name" maxlength="100" autocomplete="name" placeholder="内容编辑" />
+        <span class="form-hint">可留空，默认使用邮箱前缀。</span>
+      </div>
+      <div class="form-field">
+        <label for="register-password">密码</label>
+        <input id="register-password" name="password" type="password" autocomplete="new-password" required placeholder="至少8位，包含字母和数字" />
+      </div>
+      <div class="form-field">
+        <label for="register-confirm">确认密码</label>
+        <input id="register-confirm" name="confirm_password" type="password" autocomplete="new-password" required placeholder="再次输入密码" />
+      </div>
+      <p class="form-error" id="register-error" role="alert"></p>
+      <button class="site-button primary" id="register-button" type="submit">
+        <span class="spinner" aria-hidden="true"></span><span>创建账号</span>
+      </button>
+    </form>
+
+    <p class="auth-switch" id="auth-switch">还没有账号？<a class="site-link" href="/register">注册</a></p>
+  </section>
+</main>
+<script src="/site.js"></script>
+<script src="/auth.js"></script>
+</body>
+</html>
