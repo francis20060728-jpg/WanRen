@@ -282,6 +282,17 @@ CREATE TABLE IF NOT EXISTS typesetting_style (
     UNIQUE(workspace_id, name)
 );
 
+CREATE TABLE IF NOT EXISTS writing_style (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspace(id),
+    name TEXT NOT NULL,
+    vibe TEXT NOT NULL DEFAULT '',
+    suits TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(workspace_id, name)
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL,
@@ -620,6 +631,25 @@ class Database:
             )
             """
         )
+        self.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS writing_style (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspace(id),
+                name TEXT NOT NULL,
+                vibe TEXT NOT NULL DEFAULT '',
+                suits TEXT NOT NULL DEFAULT '',
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(workspace_id, name)
+            )
+            """
+        )
+        session_columns = {
+            row["name"] for row in self.connection.execute("PRAGMA table_info(content_session)").fetchall()
+        }
+        if session_columns and "writing_style_id" not in session_columns:
+            self.connection.execute("ALTER TABLE content_session ADD COLUMN writing_style_id TEXT")
         self.connection.commit()
 
 

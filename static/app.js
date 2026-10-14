@@ -4,7 +4,6 @@ const state = {
   accounts: [],
   sessions: [],
   articles: [],
-  templates: [],
   audits: [],
   users: [],
   systemHealth: null,
@@ -145,7 +144,6 @@ async function refreshDashboard() {
     ? `本月 $${d.ai_cost_current_month.toFixed(8)} / $${d.ai_monthly_budget_usd.toFixed(2)}`
     : `本月 $${d.ai_cost_current_month.toFixed(8)} · 未设预算`;
   $('health-score').textContent = d.health;
-  $('monitor-health').textContent = d.health;
   $('monitor-queued').textContent = d.queued;
   $('monitor-running').textContent = d.running;
   $('workflow-list').innerHTML = d.recent_workflows.length ? d.recent_workflows.map(item => `
@@ -167,11 +165,6 @@ async function refreshAccounts() {
   if (modalAccount) modalAccount.innerHTML = accountOptions || '<option value="">（请先在「公众号」中添加账号）</option>';
   if (preferredAccount) $('session-account').value = preferredAccount.id;
   renderAccounts();
-}
-
-async function refreshTemplates() {
-  // 内容架构模板已下线：架构由大模型现场提案（样式模版见 /api/typesetting-styles）
-  state.templates = [];
 }
 
 async function refreshSessions() {
@@ -288,7 +281,7 @@ function renderAssetLibrary() {
       ? `<img class="asset-thumb" src="/api/assets/${metadata.thumbnail_asset_id}/file" alt="${escapeHtml(asset.file_name)}封面帧" />` : '';
     return `<div class="row"><div><div class="row-title">${escapeHtml(asset.file_name)}</div>
     <div class="muted">${escapeHtml(asset.asset_type)} · ${escapeHtml(asset.processing_status)} · ${(asset.size_bytes / 1024).toFixed(1)} KB</div>${renderVision(asset)}</div>
-    <div class="actions">${thumbnail}${['IMAGE', 'VIDEO'].includes(asset.asset_type) && can('vision.run') ? `<button class="btn small" onclick="analyzeAsset('${asset.id}')">◎ 视觉分析</button>` : ''}${asset.asset_type === 'IMAGE' ? `<a class="btn small" href="/api/assets/${asset.id}/file" target="_blank">查看</a>` : ''}</div></div>`;
+    <div class="actions">${thumbnail}${['IMAGE', 'VIDEO'].includes(asset.asset_type) && can('vision.run') ? `<button class="btn small" onclick="analyzeAsset('${asset.id}')">◎ 视觉分析</button>` : ''}${asset.asset_type === 'VIDEO' && can('asset.write') ? `<button class="btn small" onclick="transcodeAsset('${asset.id}', 'wechat_720p')">⇴ 720p</button><button class="btn small" onclick="transcodeAsset('${asset.id}', 'preview_360p')">⇴ 360p</button>` : ''}${asset.asset_type === 'IMAGE' ? `<a class="btn small" href="/api/assets/${asset.id}/file" target="_blank">查看</a>` : ''}</div></div>`;
   };
   // 当前打开文章所属账号首次自动展开一次；此后完全尊重用户手动折叠/展开
   let currentAccount = null;
@@ -363,35 +356,6 @@ function renderAccounts() {
       <div class="actions"><span class="status ${statusClass(account.token_status)}">${escapeHtml(account.token_status)}</span>
       ${can('account.manage') ? `<button class="btn small" onclick="renameAccount('${account.id}')">✎ 同步名称</button><button class="btn small" onclick="verifyAccount('${account.id}')">◎ 检测连接</button>` : ''}</div></div>`;
   }).join('');
-}
-
-function renderTemplates() {
-  $('template-total').textContent = String(state.templates.length);
-  $('template-list').innerHTML = state.templates.length ? state.templates.map(template => {
-    const sections = JSON.parse(template.structure_json || '[]');
-    const references = JSON.parse(template.references_json || '[]');
-    return `<div class="row"><div><div class="row-title">${escapeHtml(template.name)}</div>
-      <div class="muted">${escapeHtml(template.source)} · ${escapeHtml(template.official_account_name || '全部账号')} · v${template.version}</div>
-      <div class="muted">${escapeHtml(template.description || '')}</div>
-      <div class="issues" style="margin-top:8px">${sections.map(section => `<div class="issue"><strong>${escapeHtml(section.heading)}</strong><div>${escapeHtml(section.guidance || '')} · 图片：${escapeHtml(section.image_policy || 'optional')}</div></div>`).join('')}</div></div>
-      ${references.length ? `<div class="issues" style="margin-top:8px">${references.map(reference => `<div class="issue"><strong>来源：${escapeHtml(reference.title || reference.provider || 'web')}</strong><div><a href="${escapeHtml(reference.url || '#')}" target="_blank" rel="noopener noreferrer">${escapeHtml(reference.url || '无链接')}</a><div>${escapeHtml(reference.snippet || '')}</div></div></div>`).join('')}</div>` : ''}
-      <div class="actions">
-        <button class="btn small primary" onclick="useTemplate('${template.id}')">⇥ 新任务使用</button>
-        ${template.source !== 'BUILTIN' && can('article.generate') ? `<button class="btn small" onclick="editTemplate('${template.id}')">✎ 编辑</button>` : ''}
-        <button class="btn small" onclick="showTemplateHistory('${template.id}')">⏱ 历史</button>
-      </div></div>`;
-  }).join('') : '<div class="empty">暂无模板</div>';
-}
-
-function renderTemplateVersions() {
-  const panel = $('template-history-panel');
-  panel.hidden = !state.templateVersions.length;
-  $('template-version-list').innerHTML = state.templateVersions.map(version => {
-    const sections = JSON.parse(version.structure_json || '[]');
-    return `<div class="row"><div><div class="row-title">v${version.version} · ${escapeHtml(version.name)}</div>
-      <div class="muted">${formatDate(version.created_at)} · ${escapeHtml(version.change_summary || '')} · ${sections.length} 个章节</div></div>
-      <span class="status">${escapeHtml(version.source)}</span></div>`;
-  }).join('') || '<div class="empty">暂无历史版本</div>';
 }
 
 function renderAudits() {
@@ -539,7 +503,7 @@ function showProcessStage(stageKey, detailOverride = null) {
   const runNodes = stage.key === 'generate' || stage.key === 'review'
     ? `<div class="muted">工作流：${process.latestRun ? `${process.latestRun.workflow_type} · ${process.latestRun.status} · ${process.latestRun.current_node}` : '暂无'}</div>` : '';
   const articleInfo = process.article && ['review', 'human', 'wechat', 'publish'].includes(stage.key)
-    ? `<div class="muted">文章：${process.article.title} · ${process.article.status}</div>` : '';
+    ? `<div class="muted">文章：${escapeHtml(process.article.title)} · ${escapeHtml(process.article.status)}</div>` : '';
   const scheduleInfo = process.scheduledJob && ['human', 'wechat', 'publish'].includes(stage.key)
     ? `<div class="muted">定时发布：${formatDate(process.scheduledJob.scheduled_at)} · ${process.scheduledJob.status}</div>` : '';
   const publishedInfo = process.publishedJob && ['wechat', 'publish'].includes(stage.key)
@@ -561,7 +525,7 @@ function renderCurrentView() {
   if (state.view === 'articles') renderArticles();
   if (state.view === 'assets') { void loadAllAssets().then(renderAssetLibrary).catch(() => {}); }
   if (state.view === 'accounts') renderAccounts();
-  if (state.view === 'styles') { void loadTypesettingStyles().then(renderStyleGallery).catch(() => {}); }
+  if (state.view === 'styles') { void loadTypesettingStyles().then(renderStyleGallery).catch(() => {}); void renderWritingGallery(); }
   if (state.view === 'monitor') {
     renderMonitorWorkflows();
     renderAudits();
@@ -604,7 +568,7 @@ function renderAssetRows() {
       ? `<div class="vision-result" style="color:var(--red)">${escapeHtml(state.assetErrors[asset.id])}</div>` : '';
     return `<div class="row"><div><div class="row-title">${escapeHtml(asset.file_name)}</div>
     <div class="muted">${escapeHtml(asset.asset_type)} · ${escapeHtml(asset.processing_status)} · ${(asset.size_bytes / 1024).toFixed(1)} KB${summary ? ' · ' + summary : ''}</div>${errorNote}</div>
-    <div class="actions">${['IMAGE', 'VIDEO'].includes(asset.asset_type) && can('vision.run') ? `<button class="btn small" onclick="analyzeAsset('${asset.id}')">◎ 视觉分析</button>` : ''}${thumbnail}</div></div>`;
+    <div class="actions">${['IMAGE', 'VIDEO'].includes(asset.asset_type) && can('vision.run') ? `<button class="btn small" onclick="analyzeAsset('${asset.id}')">◎ 视觉分析</button>` : ''}${asset.asset_type === 'VIDEO' && can('asset.write') ? `<button class="btn small" onclick="transcodeAsset('${asset.id}', 'wechat_720p')">⇴ 720p</button><button class="btn small" onclick="transcodeAsset('${asset.id}', 'preview_360p')">⇴ 360p</button>` : ''}${thumbnail}</div></div>`;
   }).join('') : '<div class="empty">暂无素材</div>';
 }
 
@@ -726,13 +690,13 @@ async function analyzeAsset(assetId) {
   }
 }
 
-async function transcodeAsset(assetId) {
-  const preset = document.getElementById(`transcode-preset-${assetId}`)?.value || 'wechat_720p';
+async function transcodeAsset(assetId, preset) {
+  const chosen = preset || document.getElementById(`transcode-preset-${assetId}`)?.value || 'wechat_720p';
   const result = await api(`/api/assets/${assetId}/transcode`, {
     method: 'POST',
-    body: { preset },
+    body: { preset: chosen },
   });
-  toast(result.status === 'QUEUED' ? '转码任务已排队' : '同预设转码已在队列中');
+  toast(result.status === 'QUEUED' ? `转码任务已排队（${chosen === 'wechat_720p' ? '公众号 720p' : '预览 360p'}）` : '同预设转码已在队列中');
   await loadSession();
   await refreshAll();
 }
@@ -749,19 +713,6 @@ async function generateArticle() {
   void pollPendingProposal();
   startProposalRequest(state.pendingProposal, state.pendingProposal.instruction);
 }
-
-async function waitForGeneratedArticle(sessionId, workflowRunId) {
-  const deadline = Date.now() + 30000;
-  while (Date.now() < deadline) {
-    const workflow = await api(`/api/workflows/${workflowRunId}`);
-    if (workflow.run.status === 'FAILED') throw new Error('生成任务失败');
-    const detail = await api(`/api/sessions/${sessionId}`);
-    if (workflow.run.status === 'SUCCESS' && detail.articles.length) return detail;
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  throw new Error('生成任务超时');
-}
-
 
 function renderPendingGeneration() {
   const pending = state.pendingGeneration;
@@ -1128,6 +1079,7 @@ async function renderArticle() {
       <div class="chat-messages" id="article-chat-messages"></div>
       <div class="chat-attachments" id="article-chat-attachments" ${state.pendingAttachments.length ? '' : 'hidden'}></div>
       <div class="chat-quick-actions">
+        <button type="button" onclick="aestheticReview(false)">🎨 审美巡检</button>
         <button type="button" onclick="useArticlePrompt('请把这篇文章精简成一版适合手机阅读的短读，保留论文信息和关键指标解释。')">精简短读</button>
         <button type="button" onclick="useArticlePrompt('请加强方法取舍和实验结果的解释，让非本领域读者也能读懂。')">加强解释</button>
         <button type="button" onclick="useArticlePrompt('请重新生成一版，标题更自然，不要测试或终验痕迹。')">自然重写</button>
@@ -1649,6 +1601,72 @@ function useArticlePrompt(text) {
   $('article-chat-input').focus();
 }
 
+// ============ 审美巡检闭环：截图 → 视觉模型挑刺 → 自动回喂修复一轮 ============
+const AESTHETIC_REVIEW_PROMPT =
+  '你是一名挑剔的公众号排版审校，正在看一张文章编辑器截图。只从视觉与排版角度评审：' +
+  '图片是否连排成墙、图表是否扎堆、段落与配图节奏是否失衡、版式是否有明显破损或拥挤。' +
+  '若存在明显问题，逐条输出，每条以「问题：」开头、一句话说明位置与症状（最多 5 条，只写可执行的修复方向）；' +
+  '若整体良好，只输出 PASS。不要评价文章内容本身。';
+
+function visionTextOf(visionResult) {
+  let parsed = {};
+  try { parsed = JSON.parse(visionResult || '{}'); } catch { parsed = { raw: visionResult || '' }; }
+  for (const key of ['raw', 'description', 'answer', 'issues', 'result', 'verdict']) {
+    const value = parsed[key];
+    if (Array.isArray(value) && value.length) return value.map(String).join('\n');
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return Object.keys(parsed).length ? JSON.stringify(parsed) : '';
+}
+
+async function aestheticReview(auto) {
+  if (!state.currentArticleId || state.articleChatBusy) return;
+  if (auto && state.aestheticAutoRanFor === state.currentArticleId) return; // 自动巡检每篇一轮，手动不受限
+  if (auto) state.aestheticAutoRanFor = state.currentArticleId;
+  const panel = document.querySelector('.article-chat-messages');
+  const notice = (text, tone) => {
+    if (!panel) return;
+    state.articleMessages.push({ role: 'NOTICE', content: text, status: 'COMPLETED', tone });
+    renderArticleChatMessages();
+  };
+  try {
+    // 等配图加载完再截图
+    const imgs = [...document.querySelectorAll('.article-preview img')];
+    await Promise.all(imgs.slice(0, 8).map(img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
+    await new Promise(r => setTimeout(r, 400));
+    const target = document.querySelector('.preview-zoom');
+    if (!target || typeof html2canvas !== 'function') { if (!auto) toast('截图组件未就绪', true); return; }
+    const canvas = await html2canvas(target, { backgroundColor: getComputedStyle(target.closest('.article-preview') || document.body).backgroundColor, scale: 1.2, logging: false });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('截图失败');
+    const form = new FormData();
+    form.append('file', new File([blob], '审美巡检截图.png', { type: 'image/png' }));
+    form.append('article_id', state.currentArticleId);
+    const asset = await api(`/api/sessions/${state.currentSession}/assets`, { method: 'POST', body: form });
+    const analyzed = await api(`/api/sessions/${state.currentSession}/assets/${encodeURIComponent(asset.id)}/analyze`, {
+      method: 'POST',
+      body: { prompt: AESTHETIC_REVIEW_PROMPT },
+    });
+    const verdict = visionTextOf(analyzed.vision_result);
+    if (!verdict) { notice('🎨 审美巡检完成：视觉模型未返回可用结论', 'warn'); return; }
+    if (/PASS/i.test(verdict) && !verdict.includes('问题：')) {
+      notice('🎨 审美巡检通过：版面节奏与配图分布良好');
+      return;
+    }
+    const issues = verdict.split('\n').map(l => l.trim()).filter(l => l && l.includes('问题')).slice(0, 5);
+    if (!issues.length) { notice(`🎨 审美巡检意见：${verdict.slice(0, 120)}`, 'warn'); return; }
+    notice(`🎨 审美巡检发现 ${issues.length} 处排版问题，正在自动修复（可随时终止）…`, 'warn');
+    $('article-chat-input').value =
+      '审美巡检发现以下排版问题，请在完全不改动事实、数据与章节结构的前提下修复：\n' +
+      issues.map(l => '- ' + l.replace(/^[-·\s]*问题[：:]\s*/, '')).join('\n');
+    await sendArticleChat();
+    // 流式渲染结束后补一条持久通知（流中局部消息会被服务端消息流覆盖）
+    notice('🎨 审美巡检修复完成——改动见上方工具记录，不满意可「↩ 回退」上一版');
+  } catch (error) {
+    notice(`🎨 审美巡检未完成：${error.message}${error.message.includes('视觉') || error.message.includes('vision') ? '（可在「设置」页检查视觉模型配置）' : ''}`, 'warn');
+  }
+}
+
 function addArticleToolMessage(message) {
   const runningAssistant = [...state.articleMessages].reverse().find(item => item.role === 'ASSISTANT' && item.status === 'RUNNING');
   if (runningAssistant) {
@@ -1932,130 +1950,6 @@ async function verifyAccount(accountId) {
   await refreshAccounts();
   return result;
 }
-
-function useTemplate(templateId) {
-  $('session-template').value = templateId;
-  switchView('workspace');
-  toast('模板已选择，可在新任务中使用');
-}
-
-async function createTemplate() {
-  let sections;
-  try {
-    sections = JSON.parse($('template-sections').value);
-  } catch (error) {
-    throw new Error(`章节 JSON 格式错误：${error.message}`);
-  }
-  if (!Array.isArray(sections) || sections.length < 3) throw new Error('模板至少需要 3 个章节');
-  const payload = {
-    name: $('template-name').value,
-    description: $('template-description').value,
-    official_account_id: $('template-account').value || null,
-    sections,
-    style: {
-      accent: $('template-accent').value,
-      text: $('template-text').value,
-      font: $('template-font').value,
-    },
-  };
-  if (state.editingTemplate) {
-    await api(`/api/templates/${state.editingTemplate}`, {
-      method: 'PUT',
-      body: { ...payload, change_summary: $('template-change-summary')?.value || '更新模板' },
-    });
-    toast('模板已更新为新版本');
-  } else {
-    await api('/api/templates', { method: 'POST', body: payload });
-    toast('模板已保存');
-  }
-  resetTemplateEditor();
-  await refreshTemplates();
-}
-
-function resetTemplateEditor() {
-  state.editingTemplate = null;
-  $('template-name').value = '';
-  $('template-description').value = '';
-  $('template-account').value = '';
-  $('template-sections').value = `[
-  {"id":"problem","heading":"论文要解决什么问题","guidance":"说明现有方式的限制和研究动机。","image_policy":"required"},
-  {"id":"method","heading":"方法是怎么设计的","guidance":"解释核心模块与系统流程。","image_policy":"optional"},
-  {"id":"results","heading":"效果有多好","guidance":"引用论文中的指标和实验条件。","image_policy":"optional"}
-]`;
-  $('template-accent').value = '#175641';
-  $('template-text').value = '#262626';
-  $('template-font').value = 'system';
-  $('create-template').textContent = '＋ 保存模板';
-  $('cancel-template-edit').hidden = true;
-}
-
-function editTemplate(templateId) {
-  const template = state.templates.find(item => item.id === templateId);
-  if (!template) throw new Error('模板不存在');
-  state.editingTemplate = templateId;
-  $('template-name').value = template.name;
-  $('template-description').value = template.description || '';
-  $('template-account').value = template.official_account_id || '';
-  const style = JSON.parse(template.style_json || '{}');
-  $('template-accent').value = style.accent || '#175641';
-  $('template-text').value = style.text || '#262626';
-  $('template-font').value = style.font || 'system';
-  const container = $('cancel-template-edit').parentElement;
-  let summary = $('template-change-summary');
-  if (!summary) {
-    summary = document.createElement('input');
-    summary.id = 'template-change-summary';
-    summary.placeholder = '版本说明';
-    summary.style.cssText = 'height:36px;flex:1;min-width:180px;border:1px solid var(--line);border-radius:6px;padding:0 10px;background:var(--panel);color:var(--ink)';
-    container.insertBefore(summary, $('cancel-template-edit'));
-  }
-  summary.value = '';
-  summary.hidden = false;
-  $('template-sections').value = JSON.stringify(JSON.parse(template.structure_json || '[]'), null, 2);
-  $('create-template').textContent = '⇧ 保存新版本';
-  $('cancel-template-edit').hidden = false;
-  $('template-sections').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-async function showTemplateHistory(templateId) {
-  state.templateVersions = await api(`/api/templates/${templateId}/versions`);
-  renderTemplateVersions();
-  $('template-history-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function hideTemplateHistory() {
-  state.templateVersions = [];
-  renderTemplateVersions();
-}
-
-async function searchTemplateReferences() {
-  const query = $('template-search-query').value.trim();
-  if (!query) throw new Error('请先填写搜索关键词');
-  const result = await api('/api/templates/search', { method: 'POST', body: { query } });
-  $('template-reference').value = result.results.map(item => `${item.title}\n${item.url}\n${item.snippet}`).join('\n\n');
-  toast(`已找到 ${result.results.length} 条参考`);
-  return result;
-}
-
-async function generateTemplate() {
-  const autoSearch = $('template-auto-search').checked;
-  if (autoSearch && !$('template-search-query').value.trim() && $('template-prompt').value.trim().length < 8) {
-    throw new Error('自动搜索需要关键词或更完整的模板需求');
-  }
-  await api('/api/templates/generate', {
-    method: 'POST',
-    body: {
-      description: $('template-prompt').value,
-      reference: $('template-reference').value,
-      search_query: $('template-search-query').value,
-      auto_search: autoSearch,
-      official_account_id: $('generate-template-account').value || null,
-    },
-  });
-  toast('AI 模板已生成');
-  await refreshTemplates();
-}
-
 async function createUser() {
   await api('/api/users', {
     method: 'POST',
@@ -2130,18 +2024,6 @@ async function backgroundRefresh() {
   } catch { /* transient polling errors are shown by explicit actions */ }
 }
 
-function showLogin(message = '') {
-  $('login-overlay').style.display = 'grid';
-  $('login-message').textContent = message;
-  $('login-password').value = '';
-  $('login-message').textContent = message;
-}
-
-function hideLogin() {
-  $('login-overlay').style.display = 'none';
-  $('login-message').textContent = '';
-}
-
 function renderCurrentUser() {
   if (state.user?.email) {
     $('current-user').textContent = `${state.user.name} · ${state.user.role}`;
@@ -2161,8 +2043,6 @@ function applyPermissions() {
     ['sync-draft-status', 'publish.submit'],
     ['asset-input', 'asset.write'],
     ['create-account', 'account.manage'],
-    ['create-template', 'article.generate'],
-    ['generate-template', 'article.generate'],
     ['create-user', 'user.manage'],
   ];
   controls.forEach(([id, permission]) => {
@@ -2176,41 +2056,8 @@ function applyPermissions() {
   document.querySelector('[data-view="users"]').style.display = can('user.manage') ? '' : 'none';
   const accountCreatePanel = $('create-account')?.closest('.panel');
   if (accountCreatePanel) accountCreatePanel.style.display = can('account.manage') ? '' : 'none';
-  const manualTemplatePanel = $('create-template')?.closest('.panel');
-  if (manualTemplatePanel) manualTemplatePanel.style.display = can('article.generate') ? '' : 'none';
-  const aiTemplatePanel = $('generate-template')?.closest('.panel');
-  if (aiTemplatePanel) aiTemplatePanel.style.display = can('article.generate') ? '' : 'none';
   const userCreatePanel = $('create-user')?.closest('.panel');
   if (userCreatePanel) userCreatePanel.style.display = can('user.manage') ? '' : 'none';
-}
-
-async function login() {
-  const button = $('login-button');
-  button.classList.add('loading');
-  button.disabled = true;
-  try {
-    const result = await api('/api/auth/login', {
-      method: 'POST',
-      body: { email: $('login-email').value, password: $('login-password').value },
-    });
-    state.token = result.token;
-    state.user = result.user;
-    renderCurrentUser();
-    state.view = 'workspace';
-    switchView('workspace');
-    hideLogin();
-    await refreshAll();
-    if (!state.pendingGeneration && !state.currentArticleId && state.sessions.length && !state.currentSession) {
-      state.currentSession = state.sessions[0].id;
-      await loadSession();
-    }
-    toast(`已登录：${state.user.name}`);
-  } catch (error) {
-    $('login-message').textContent = error.message;
-  } finally {
-    button.classList.remove('loading');
-    button.disabled = false;
-  }
 }
 
 async function logout() {
@@ -2248,58 +2095,6 @@ function applyTheme(themeKey) {
   });
 }
 
-function switchAuthMode(mode) {
-  const loginActive = mode === 'login';
-  $('login-tab').classList.toggle('active', loginActive);
-  $('register-tab').classList.toggle('active', !loginActive);
-  $('auth-login-panel').hidden = !loginActive;
-  $('auth-register-panel').hidden = loginActive;
-}
-
-async function loadAuthConfig() {
-  try {
-    state.authConfig = await api('/api/auth/config');
-    const enabled = Boolean(state.authConfig.registration_enabled);
-    $('register-disabled').hidden = enabled;
-    ['register-email', 'register-name', 'register-password', 'register-confirm', 'register-button'].forEach(id => {
-      $(id).disabled = !enabled;
-    });
-  } catch {
-    state.authConfig.registration_enabled = false;
-    $('register-disabled').hidden = false;
-  }
-}
-
-async function register() {
-  const button = $('register-button');
-  button.classList.add('loading');
-  button.disabled = true;
-  try {
-    const result = await api('/api/auth/register', {
-      method: 'POST',
-      body: {
-        email: $('register-email').value,
-        name: $('register-name').value,
-        password: $('register-password').value,
-        confirm_password: $('register-confirm').value,
-      },
-    });
-    state.token = result.token;
-    state.user = result.user;
-    renderCurrentUser();
-    state.view = 'workspace';
-    switchView('workspace');
-    hideLogin();
-    await refreshAll();
-    toast(`注册成功：${state.user.name}`);
-  } catch (error) {
-    $('register-message').textContent = error.message;
-  } finally {
-    button.classList.remove('loading');
-    button.disabled = !state.authConfig.registration_enabled;
-  }
-}
-
 async function init() {
   // 会话恢复：生成中的新对话续接轮询；否则回到最近打开的文章（Codex 式回到现场）
   try {
@@ -2328,10 +2123,9 @@ async function init() {
   $('generate-article').onclick = async () => { try { await generateArticle(); } catch (e) { toast(e.message, true); } };
   $('create-account').onclick = async () => { try { await createAccount(); } catch (e) { toast(e.message, true); } };
   $('import-style-button').onclick = () => openStyleImport();
+  $('import-writing-button').onclick = () => openWritingImport();
   $('create-user').onclick = async () => { try { await createUser(); } catch (e) { toast(e.message, true); } };
   $('sync-draft-status').onclick = async () => { try { await syncAllDraftStatuses(); } catch (e) { toast(e.message, true); } };
-  $('login-button').onclick = async () => { await login(); };
-  $('register-button').onclick = async () => { await register(); };
   $('logout-button').onclick = async () => { await logout(); };
   $('article-status-filter').onchange = event => {
     state.articleStatusFilter = event.target.value;
@@ -2343,11 +2137,6 @@ async function init() {
   $('audit-prev-page').onclick = async () => { try { await changeAuditPage(-1); } catch (e) { toast(e.message, true); } };
   $('audit-next-page').onclick = async () => { try { await changeAuditPage(1); } catch (e) { toast(e.message, true); } };
   $('audit-page-size').onchange = async event => { try { await changeAuditPageSize(event.target.value); } catch (e) { toast(e.message, true); } };
-  $('login-password').addEventListener('keydown', event => { if (event.key === 'Enter') login(); });
-  $('register-password').addEventListener('keydown', event => { if (event.key === 'Enter') register(); });
-  $('register-confirm').addEventListener('keydown', event => { if (event.key === 'Enter') register(); });
-  $('login-tab').onclick = () => switchAuthMode('login');
-  $('register-tab').onclick = () => switchAuthMode('register');
   $('article-panel').addEventListener('input', event => {
     if (event.target.matches('[data-article-field], [data-field="heading"], [data-paragraph-index]')) {
       markArticleEditorDirty();
@@ -2365,7 +2154,6 @@ async function init() {
     }
   });
   applyTheme(localStorage.getItem('wanren_theme') || 'mo');
-  await loadAuthConfig();
   try {
     state.user = await api('/api/auth/me');
     renderCurrentUser();
@@ -2391,14 +2179,6 @@ window.openArticle = openArticle;
 window.analyzeAsset = analyzeAsset;
 window.transcodeAsset = transcodeAsset;
 window.verifyAccount = verifyAccount;
-window.useTemplate = useTemplate;
-window.createTemplate = createTemplate;
-window.resetTemplateEditor = resetTemplateEditor;
-window.editTemplate = editTemplate;
-window.showTemplateHistory = showTemplateHistory;
-window.hideTemplateHistory = hideTemplateHistory;
-window.searchTemplateReferences = searchTemplateReferences;
-window.generateTemplate = generateTemplate;
 window.rerunReview = rerunReview;
 window.useArticlePrompt = useArticlePrompt;
 window.sendArticleChat = sendArticleChat;
@@ -2453,7 +2233,7 @@ function renderChatTree() {
       <div class="tree-account-head"><span>◈ ${escapeHtml(group.account.name)}</span><span class="status">${rows.length}</span></div>
       ${rows.map(a => `
         <div class="tree-article-row${a.id === state.currentArticleId ? ' active' : ''}" data-article-id="${a.id}">
-          <button class="tree-article${a.id === state.currentArticleId ? ' active' : ''}" type="button" onclick="openArticleFromTree('${a.id}')" title="${escapeHtml(a.title)}">
+          <button class="tree-article${a.id === state.currentArticleId ? ' active' : ''}" type="button" onclick="openArticleFromTree('${escapeHtml(a.id)}')" title="${escapeHtml(a.title)}">
             <span class="tree-article-title">${escapeHtml(a.title)}</span>
             <span class="status${a.status === 'PUBLISHED' ? '' : (a.status === 'REJECTED' || a.status === 'FAILED') ? ' bad' : ' warn'}">${articleStatusText(a.status)}</span>
           </button>
@@ -2597,6 +2377,8 @@ function openNewChatModal() {
   }
   state.newChatStyle = state.newChatStyle || ''; // '' = AI 推荐
   renderNewChatStyleRow();
+  state.newChatWriting = state.newChatWriting ?? '';
+  renderNewChatWritingRow();
   renderModalAttachments();
   $('new-chat-input')?.focus();
 }
@@ -2639,7 +2421,12 @@ async function submitNewChat() {
     const goal = instruction || '根据上传素材写一篇公众号文章';
     const created = await api('/api/sessions', {
       method: 'POST',
-      body: { title: (instruction || '素材文章').slice(0, 24), goal, official_account_id: accountId },
+      body: {
+        title: (instruction || '素材文章').slice(0, 24),
+        goal,
+        official_account_id: accountId,
+        ...(state.newChatWriting ? { writing_style_id: state.newChatWriting } : {}),
+      },
     });
     const sessionId = created.session.id;
     state.currentSession = sessionId;
@@ -2688,6 +2475,7 @@ async function pollPendingGeneration() {
         await refreshSessions();
         renderChatTree(); // 生成完成：新对话立即出现在左侧，无需刷新
         toast('初稿已生成，直接在样式上继续编辑或对话改稿');
+        void aestheticReview(true); // 生成后自动审美巡检一轮（截图→视觉模型挑刺→自动回喂修复）
         return;
       }
     } catch { /* 轮询失败继续重试 */ }
@@ -2727,6 +2515,29 @@ function renderNewChatStyleRow() {
 function selectNewChatStyle(styleId) {
   state.newChatStyle = styleId || '';
   renderNewChatStyleRow();
+}
+
+// ============ 新对话弹窗的文字风格选择（笔感：范文 few-shot 决定「像谁写的」） ============
+
+function renderNewChatWritingRow() {
+  const host = $('new-chat-writing-row');
+  if (!host) return;
+  const styles = state.writingStyles || [];
+  if (!styles.length) { host.innerHTML = '<span class="muted" style="font-size:11.5px">文风目录加载中…</span>'; return; }
+  const chosen = state.newChatWriting ?? '';
+  const chips = [`<button type="button" class="style-chip${chosen === '' ? ' active' : ''}" onclick="selectNewChatWriting('')">✦ 默认笔感</button>`]
+    .concat(styles.map(style => `
+      <button type="button" class="style-chip${chosen === style.id ? ' active' : ''}" onclick="selectNewChatWriting('${escapeHtml(style.id)}')" title="${escapeHtml(style.vibe || '')}">
+        ✎ ${escapeHtml(style.name)}
+        <span class="eye" title="看风格刻画与范文" onclick="event.stopPropagation(); openWritingPreview('${escapeHtml(style.id)}')">👁</span>
+      </button>`))
+    .join('');
+  host.innerHTML = chips + '<span class="strip-hint">决定「读起来像谁写的」，生成与改稿全程生效</span>';
+}
+
+function selectNewChatWriting(styleId) {
+  state.newChatWriting = styleId || '';
+  renderNewChatWritingRow();
 }
 
 // ============ 架构提案流（第一次使用：AI 先提案，用户确认 / 修改 / 取消；可中途终止） ============
@@ -2781,6 +2592,16 @@ async function loadTypesettingStyles() {
     state.typesettingStyles = payload.styles || [];
   } catch { state.typesettingStyles = state.typesettingStyles || []; }
   renderNewChatStyleRow();
+  void loadWritingStyles();
+}
+
+async function loadWritingStyles() {
+  try {
+    const payload = await api('/api/writing-styles');
+    state.writingStyles = payload.styles || [];
+  } catch { state.writingStyles = state.writingStyles || []; }
+  renderNewChatWritingRow();
+  renderWritingGallery();
 }
 
 function styleCatalogOptions(selectedId) {
@@ -3084,8 +2905,107 @@ async function renderStyleGallery() {
     </div>`).join('');
 }
 
-async function openStylePreview(styleId, sampleId) {
+// ============ 文字风格画廊与预览/导入 ============
+
+function renderWritingGallery() {
+  const host = $('writing-style-gallery');
+  if (!host) return;
+  const styles = state.writingStyles || [];
+  if (!styles.length) { host.innerHTML = '<div class="empty">文字风格加载中…</div>'; return; }
+  host.innerHTML = styles.map(style => `
+    <div class="style-card writing-card" onclick="openWritingPreview('${escapeHtml(style.id)}')" title="点开看风格刻画与人工范文">
+      <div class="style-mock"><span class="wline t1"></span><span class="wline t2"></span><span class="wline t3"></span><span class="wline t4"></span><span class="wline t5"></span></div>
+      <div class="style-card-body">
+        <div style="min-width:0"><strong>✎ ${escapeHtml(style.name)}</strong>${style.builtin ? '' : '<span class="style-badge">导入</span>'}
+          <div class="muted">${escapeHtml(style.vibe || '')}</div></div>
+        <div class="style-card-actions" onclick="event.stopPropagation()">
+          ${style.builtin ? '' : `<button type="button" title="删除该导入文字风格" onclick="deleteWritingStyle('${escapeHtml(style.id)}')">×</button>`}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function openWritingPreview(styleId) {
   try {
+    const payload = await api(`/api/writing-styles/${encodeURIComponent(styleId)}`);
+    const style = payload.style || {};
+    $('writing-preview-title').textContent = `文字风格 · ${style.name || styleId}`;
+    const rules = (style.rules || []).map(r => `<li>${escapeHtml(r)}</li>`).join('');
+    const samples = (style.samples || []).map(s => `
+      <div class="writing-sample">${s.title ? `<b class="sample-title">${escapeHtml(s.title)}</b>` : ''}${escapeHtml(s.text)}</div>`).join('');
+    $('writing-preview-body').innerHTML = `
+      <div class="muted" style="font-size:12.5px">${escapeHtml(style.vibe || '')}${style.suits ? ' · 适合 ' + escapeHtml(style.suits) : ''}</div>
+      <p style="margin:10px 0 4px;font-size:13.5px;line-height:1.8">${escapeHtml(style.description || '')}</p>
+      ${rules ? `<ul class="writing-rules plain">${rules}</ul>` : ''}
+      <div class="muted" style="font-size:11.5px;margin:6px 0 2px">人工范文（AI 只学笔感与节奏，不学题材）：</div>
+      ${samples}`;
+    $('writing-preview-modal').style.display = 'grid';
+  } catch (error) {
+    toast(`文字风格加载失败：${error.message}`, true);
+  }
+}
+
+function closeWritingPreview() {
+  const modal = $('writing-preview-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function openWritingImport() {
+  $('writing-import-modal').style.display = 'grid';
+}
+
+function closeWritingImport() {
+  const modal = $('writing-import-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitWritingImport() {
+  const message = $('writing-import-message');
+  message.textContent = '';
+  const name = ($('writing-import-name').value || '').trim();
+  const description = ($('writing-import-description').value || '').trim();
+  const rules = ($('writing-import-rules').value || '').split('\n').map(r => r.trim()).filter(Boolean);
+  const samples = [$('writing-import-sample1').value || '', $('writing-import-sample2').value || '']
+    .filter(Boolean)
+    .map((text, index) => ({ title: `范文${index + 1}`, text: text.trim() }));
+  if (!name || description.length < 20 || !samples.length) {
+    message.className = 'status warn';
+    message.textContent = '名称、至少 20 字刻画、至少一段范文都要填';
+    return;
+  }
+  try {
+    await api('/api/writing-styles', {
+      method: 'POST',
+      body: {
+        name,
+        vibe: ($('writing-import-vibe').value || '').trim(),
+        suits: ($('writing-import-suits').value || '').trim(),
+        description,
+        rules,
+        samples,
+      },
+    });
+    toast('文字风格已导入');
+    closeWritingImport();
+    await loadWritingStyles();
+  } catch (error) {
+    message.className = 'status warn';
+    message.textContent = error.message;
+  }
+}
+
+async function deleteWritingStyle(styleId) {
+  if (!window.confirm('删除这个导入的文字风格？（使用它的会话将回到默认笔感）')) return;
+  try {
+    await api(`/api/writing-styles/${encodeURIComponent(styleId)}`, { method: 'DELETE' });
+    toast('已删除');
+    await loadWritingStyles();
+  } catch (error) {
+    toast(`删除失败：${error.message}`, true);
+  }
+}
+
+async function openStylePreview(styleId, sampleId) {  try {
     const query = sampleId ? `?sample=${encodeURIComponent(sampleId)}` : '';
     const payload = await api(`/api/typesetting-styles/${encodeURIComponent(styleId)}/preview${query}`);
     $('style-preview-title').textContent = `排版样例 · ${payload.name || styleId}`;
@@ -3231,12 +3151,20 @@ window.openStylePreview = openStylePreview;
 window.closeStylePreview = closeStylePreview;
 window.copyStylePreviewToWechat = copyStylePreviewToWechat;
 window.selectNewChatStyle = selectNewChatStyle;
+window.selectNewChatWriting = selectNewChatWriting;
+window.aestheticReview = aestheticReview;
 window.openArticleRenderPreview = openArticleRenderPreview;
 window.exportStyle = exportStyle;
 window.openStyleImport = openStyleImport;
 window.closeStyleImport = closeStyleImport;
 window.submitStyleImport = submitStyleImport;
 window.deleteStyle = deleteStyle;
+window.openWritingPreview = openWritingPreview;
+window.closeWritingPreview = closeWritingPreview;
+window.openWritingImport = openWritingImport;
+window.closeWritingImport = closeWritingImport;
+window.submitWritingImport = submitWritingImport;
+window.deleteWritingStyle = deleteWritingStyle;
 window.removeModalAttachment = removeModalAttachment;
 
 /* ====================================================================
@@ -3284,7 +3212,7 @@ function renderSettingsView(settings) {
   const textPanel = $('text-config-panel');
   const vidlensPanel = $('vidlens-status-panel');
   if (visionPanel) visionPanel.hidden = activeMode !== 'multimodal';
-  if (textPanel) textPanel.hidden = activeMode !== 'vidlens';
+  if (textPanel) textPanel.hidden = false;
   if (vidlensPanel) vidlensPanel.hidden = activeMode !== 'vidlens';
   const modelStatus = $('vision-model-status');
   if (modelStatus) { modelStatus.textContent = settings.configured ? '已配置' : '未配置'; modelStatus.className = 'status' + (settings.configured ? '' : ' warn'); }
@@ -3696,6 +3624,11 @@ window.quickSchedule = quickSchedule;
 window.openArticleFromTree = openArticleFromTree;
 window.newArticleChat = newArticleChat;
 $('test-vision-connection')?.addEventListener('click', () => void testModelConnection('vision'));
+$('save-vision-settings')?.addEventListener('click', () => void saveVisionSettings());
+// 素材库「上传到当前对话」：选完文件即传（uploadToGroup 只开了选择器，此前须回工作台手动点上传）
+$('asset-input')?.addEventListener('change', () => {
+  if (state.assetUploadTarget && $('asset-input')?.files?.length) void uploadAssets();
+});
 $('save-text-settings')?.addEventListener('click', () => void saveTextSettings());
 $('text-provider-input')?.addEventListener('change', () => { $('text-provider-input').dataset.touched = '1'; });
 $('text-model-input')?.addEventListener('input', () => { $('text-model-input').dataset.touched = '1'; });

@@ -150,7 +150,7 @@ def _parse_pdf(payload: bytes) -> tuple[str, dict[str, Any]]:
 
 
 def _extract_pdf_figures(payload: bytes) -> tuple[list[DerivedAsset], list[dict[str, Any]]]:
-    """Extract large embedded raster figures while ignoring journal logos. Vector-only charts are left in-page."""
+    """Extract large embedded raster figures while ignoring journal logos."""
     try:
         from pypdf import PdfReader
     except ImportError as exc:
@@ -199,6 +199,130 @@ def _extract_pdf_figures(payload: bytes) -> tuple[list[DerivedAsset], list[dict[
             summaries.append(summary)
             if len(figures) >= 20:
                 return figures, summaries
+    return figures, summaries
+
+
+def _merge_boxes(boxes: list[list[float]]) -> list[list[float]]:
+    """按 8pt 间隙并查集聚合相交的绘图包围盒，直到稳定。"""
+    changed = True
+    while changed:
+        changed = False
+        merged: list[list[float]] = []
+        for box in boxes:
+            hit = False
+            for other in merged:
+                if box[0] < other[2] and other[0] < box[2] and box[1] < other[3] and other[1] < box[3]:
+                    other[0] = min(other[0], box[0])
+                    other[1] = min(other[1], box[1])
+                    other[2] = max(other[2], box[2])
+                    other[3] = max(other[3], box[3])
+                    hit = True
+                    changed = True
+                    break
+            if not hit:
+                merged.append(list(box))
+        boxes = merged
+    return boxes
+
+
+def _extract_pdf_vector_figures(payload: bytes) -> tuple[list[DerivedAsset], list[dict[str, Any]]]:
+    """矢量图抽取：matplotlib/Origin 导出的曲线图在 PDF 里是路径而非内嵌位图，
+    旧位图抽取器对它们束手无策（论文图表型 PDF 常见）。这里用 pdfplumber 读出
+    线/矩形/曲线的几何，聚合成图块（排除大面积表格与纯文字页），再用
+    pypdfium2 以 200dpi 渲染成 PNG——与位图路径产出同构的派生配图。"""
+    try:
+        import pdfplumber
+        import pypdfium2 as pdfium
+    except ImportError:
+        return [], []
+
+    figures: list[DerivedAsset] = []
+    summaries: list[dict[str, Any]] = []
+    scale = 200 / 72
+    try:
+        with pdfplumber.open(io.BytesIO(payload)) as plumber_doc:
+            render_doc = pdfium.PdfDocument(payload)
+            for page_number, page in enumerate(plumber_doc.pages[:100], start=1):
+                elements = [
+                    (e["x0"], e["top"], e["x1"], e["bottom"])
+                    for e in (page.rects + page.lines + page.curves)
+                ]
+                if not elements:
+                    continue
+                chars = [(c["x0"], c["top"], c["x1"], c["bottom"]) for c in page.chars]
+                gap = 8.0
+                boxes = _merge_boxes([[x0 - gap, top - gap, x1 + gap, bottom + gap] for x0, top, x1, bottom in elements])
+                for cluster_index, (x0, top, x1, bottom) in enumerate(boxes, start=1):
+                    width_pt, height_pt = x1 - x0, bottom - top
+                    if width_pt < 150 or height_pt < 100:
+                        continue
+                    if width_pt * height_pt > 0.85 * page.width * page.height:
+                        continue  # 整页边框/满页装饰
+                    char_count = sum(
+                        1
+                        for cx0, ctop, cx1, cbottom in chars
+                        if cx0 < x1 and x0 < cx1 and ctop < bottom and top < cbottom
+                    )
+                    if char_count > 500:
+                        continue  # 表格或正文文本块
+                    try:
+                        bitmap = render_doc[page_number - 1].render(scale=scale)
+                    except Exception:
+                        continue
+                    image = bitmap.to_pil()
+                    crop = image.crop(
+                        (
+                            max(0, int(x0 * scale)),
+                            max(0, int(top * scale)),
+                            min(image.width, int(x1 * scale)),
+                            min(image.height, int(bottom * scale)),
+                        )
+                    )
+                    output = io.BytesIO()
+                    crop.save(output, format="PNG")
+                    data = output.getvalue()
+                    if crop.width < 400 or crop.height < 200 or len(data) < 20_000:
+                        continue
+                    # 图块正下方 2–30pt 内的文字通常是图注（「图 N xxx」/ Fig. N），抓给模型做选图依据
+                    caption_guess = ""
+                    try:
+                        caption_area = (
+                            max(0.0, x0 - 10),
+                            bottom + 2,
+                            min(float(page.width), x1 + 10),
+                            min(float(page.height), bottom + 30),
+                        )
+                        if caption_area[3] > caption_area[1]:
+                            caption_text = page.crop(caption_area).extract_text() or ""
+                            caption_guess = " ".join(caption_text.split())[:120]
+                    except Exception:
+                        caption_guess = ""
+                    summary = {
+                        "page": page_number,
+                        "image_index": cluster_index,
+                        "width": crop.width,
+                        "height": crop.height,
+                        "size_bytes": len(data),
+                        "source": "vector",
+                        **({"caption_guess": caption_guess} if caption_guess else {}),
+                    }
+                    figures.append(
+                        DerivedAsset(
+                            "IMAGE",
+                            f"figure-v{len(figures) + 1}.png",
+                            "image/png",
+                            data,
+                            {
+                                "derivative_type": "PDF_FIGURE",
+                                **summary,
+                            },
+                        )
+                    )
+                    summaries.append(summary)
+                    if len(figures) >= 20:
+                        return figures, summaries
+    except Exception:
+        return figures, summaries
     return figures, summaries
 
 
@@ -345,6 +469,11 @@ def parse_payload(asset_type: str, payload: bytes) -> ParsedAsset:
         elif asset_type == "PDF":
             text, structured = _parse_pdf(payload)
             figures, figure_summaries = _extract_pdf_figures(payload)
+            if len(figures) < 20:
+                vector_figures, vector_summaries = _extract_pdf_vector_figures(payload)
+                room = 20 - len(figures)
+                figures.extend(vector_figures[:room])
+                figure_summaries.extend(vector_summaries[:room])
             structured["figure_count"] = len(figures)
             structured["figures"] = figure_summaries
         elif asset_type == "DOCX":

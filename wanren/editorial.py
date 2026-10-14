@@ -92,6 +92,26 @@ def _paper_metadata(text: str, fallback_title: str) -> dict[str, Any]:
     }
 
 
+_LABEL_FILLER = "的为是约达高达了仅只余"
+
+
+def _context_label(sentence: str, start: int, fallback: str) -> str:
+    """从数字前缀里取名词短语当标签：「体积收缩约64%」→「体积收缩」。
+
+    裸「百分比」这类标签对读者零信息量；中文语境取数字前的连续汉字段，
+    去掉「约/为/达到」等填充词，取不到（如英文句子）再退回 fallback。
+    """
+    match = re.search(r"([一-龥]{2,12})\s*$", sentence[:start])
+    if not match:
+        return fallback
+    label = match.group(1)
+    while label and label[-1] in _LABEL_FILLER:
+        label = label[:-1]
+    while label and label[0] in _LABEL_FILLER:
+        label = label[1:]
+    return label if len(label) >= 2 else fallback
+
+
 def _metric_evidences(sentences: list[str]) -> list[MetricEvidence]:
     patterns = [
         (r"\bmAP(?:50)?\s*(?:of|is|=|达到)?\s*(0?\.\d+)", "mAP50"),
@@ -111,7 +131,9 @@ def _metric_evidences(sentences: list[str]) -> list[MetricEvidence]:
                 if key in seen:
                     continue
                 seen.add(key)
-                metrics.append(MetricEvidence(value, label, sentence))
+                metrics.append(
+                    MetricEvidence(value, _context_label(sentence, match.start(1), label), sentence)
+                )
                 if len(metrics) >= 12:
                     return metrics
     return metrics

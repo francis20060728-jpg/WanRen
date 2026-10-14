@@ -231,6 +231,19 @@
     .sec-badge-dot { width:26px;height:26px;border-radius:50%;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-right:10px;vertical-align:middle; }
     .sec-badge-step { display:inline-block;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:1px;margin:18px 0 6px;border-radius:4px; }
     .article-preview h4 { margin: 18px 0 8px; }
+    /* 文字风格：卡片与范文预览 */
+    .writing-card { min-height:120px; }
+    .writing-card .style-mock { height:118px; font-size:11.5px; line-height:1.7; color:#3a3f42; display:flex; flex-direction:column; justify-content:center; gap:5px; padding:14px 16px; }
+    .writing-card .wline { height:7px; border-radius:3px; background:var(--line); }
+    .writing-card .wline.t1 { width:34%; height:11px; background:var(--green); opacity:.85; }
+    .writing-card .wline.t2 { width:92%; }
+    .writing-card .wline.t3 { width:78%; }
+    .writing-card .wline.t4 { width:86%; }
+    .writing-card .wline.t5 { width:52%; }
+    .writing-sample { background:var(--canvas); border:1px solid var(--line); border-radius:8px; padding:14px 16px; font-size:13.5px; line-height:1.9; white-space:pre-wrap; color:var(--ink); margin:8px 0; }
+    .writing-sample b.sample-title { display:block; font-size:11.5px; color:var(--green); margin-bottom:6px; letter-spacing:.5px; }
+    .writing-rules { background:var(--amber-soft); border-left:3px solid var(--amber); border-radius:0 6px 6px 0; padding:10px 14px; font-size:12.5px; margin:10px 0; }
+    .writing-rules li { margin:3px 0; }
     /* 样式模版画廊：卡片 = 无文字的迷你版式示意 + 名称 */
     .style-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
     .style-card { border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; cursor:pointer; transition:border-color .15s, box-shadow .15s; display:flex; flex-direction:column; }
@@ -391,27 +404,6 @@
     .theme-switcher { display:flex; align-items:center; gap:7px; }
     .theme-dot { width:20px;height:20px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0; }
     .theme-dot.active { box-shadow:0 0 0 2px var(--green); }
-    .login-overlay { position:fixed; inset:0; background:var(--overlay); display:none; z-index:50; padding:min(5vw,64px); }
-    .auth-shell { width:min(1120px,100%); height:100%; display:grid; grid-template-columns:minmax(0,1fr) minmax(400px,470px); gap:min(6vw,82px); align-items:center; color:#f3f7f5; }
-    .auth-story { min-width:0; }
-    .auth-brand { display:flex; align-items:center; gap:14px; margin-bottom:38px; }
-    .auth-brand-mark { width:52px;height:52px;border-radius:8px;background:var(--mark-bg);color:var(--mark-ink);display:grid;place-items:center;font-size:22px;font-weight:800; }
-    .auth-kicker { display:inline-flex;align-items:center;height:27px;padding:0 11px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:700;letter-spacing:0; }
-    .auth-story h2 { margin:20px 0 14px; font-size:clamp(34px,4vw,55px); line-height:1.08; max-width:660px; }
-    .auth-story p { margin:0; max-width:590px; color:rgba(243,247,245,.78); font-size:15px; line-height:1.8; }
-    .auth-proof { display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:10px;margin-top:38px; }
-    .auth-proof div { border-left:3px solid var(--mark-bg);padding:2px 0 2px 12px; }
-    .auth-proof strong { display:block;font-size:18px; }
-    .auth-proof span { font-size:12px;color:rgba(243,247,245,.68); }
-    .auth-theme-row { display:flex;gap:8px;margin-top:38px; }
-    .auth-theme-row .theme-dot { border-color:rgba(255,255,255,.55); }
-    .auth-card { background:var(--panel); color:var(--ink); border-radius:8px; padding:30px; box-shadow:0 26px 70px rgba(0,0,0,.3); }
-    .auth-tabs { display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--canvas);border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:22px; }
-    .auth-tab { height:35px;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;font-size:13px; }
-    .auth-tab.active { background:var(--panel);color:var(--green);font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    .auth-card h2 { margin:0 0 8px; }
-    .auth-card p { margin:0 0 20px; color:var(--muted); font-size:13px; }
-    .auth-disabled { border-left:4px solid var(--amber);background:var(--amber-soft);padding:12px 14px;color:var(--ink);font-size:13px;margin-bottom:16px; }
     .spinner { width:14px; height:14px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; display:none; }
     .loading .spinner { display:inline-block; }
     /* ---- 设置页 ---- */
@@ -602,10 +594,18 @@
     <section id="styles-view" class="view-section" hidden>
       <section class="panel">
         <div class="panel-head">
-          <div><h2>样式模版</h2><small>8 种内置排版气质 + 导入的自定义样式；点卡片看整篇排版样例，提案与编辑器同源可选</small></div>
-          <div class="actions"><button id="import-style-button" class="btn primary" type="button">⇩ 导入样式</button></div>
+          <div><h2>模版中心</h2><small>两类模版：样式模版管排版长相 · 文字风格管笔感人味，均支持导入自定义</small></div>
+          <div class="actions">
+            <button id="import-writing-button" class="btn" type="button">⇩ 导入文字风格</button>
+            <button id="import-style-button" class="btn primary" type="button">⇩ 导入样式</button>
+          </div>
         </div>
-        <div class="panel-body"><div id="style-gallery" class="style-gallery"></div></div>
+        <div class="panel-body">
+          <h3 style="font-size:15px;margin:2px 0 10px">▤ 样式模版 · 排版</h3>
+          <div id="style-gallery" class="style-gallery" style="margin-bottom:22px"></div>
+          <h3 style="font-size:15px;margin:0 0 10px">✎ 文字风格 · 笔感</h3>
+          <div id="writing-style-gallery" class="style-gallery"></div>
+        </div>
       </section>
     </section>
 
@@ -811,6 +811,10 @@
         <span class="style-row-label">排版样式</span>
         <div class="style-chip-strip" id="new-chat-style-row"></div>
       </div>
+      <div class="new-chat-style-row">
+        <span class="style-row-label">文字风格</span>
+        <div class="style-chip-strip" id="new-chat-writing-row"></div>
+      </div>
       <div class="new-chat-actions">
         <select id="new-chat-account" aria-label="发布到公众号"></select>
         <button id="new-chat-send" class="btn primary" type="button" onclick="submitNewChat()">开始对话 ➤</button>
@@ -849,50 +853,38 @@
     </div>
   </div>
 </div>
-<div id="toast" class="toast"></div>
-<div id="login-overlay" class="login-overlay">
-  <div class="auth-shell">
-    <section class="auth-story">
-      <div class="auth-brand">
-        <div class="auth-brand-mark">万</div>
-        <div><strong style="display:block;font-size:18px">万仞</strong><span style="font-size:12px;color:rgba(243,247,245,.68)">Content Operations</span></div>
-      </div>
-      <span class="auth-kicker">微信公众号内容生产与发布</span>
-      <h2>把一次任务资料，变成可审核、可追踪的公众号文章</h2>
-      <p>万仞围绕 Session 组织素材、视觉理解、AI 生成、规则预审、人工终审和微信草稿发布。团队可以看到每个阶段卡在哪里，发布前保留明确的人工边界。</p>
-      <div class="auth-proof">
-        <div><strong>8 阶段</strong><span>生产流程追踪</span></div>
-        <div><strong>5 类角色</strong><span>编辑 / 审核 / 发布分权</span></div>
-        <div><strong>7 项健康</strong><span>数据库到发布适配</span></div>
-      </div>
-      <div class="auth-theme-row theme-switcher" id="auth-theme-switcher"></div>
-    </section>
-    <section class="auth-card">
-      <div class="auth-tabs">
-        <button class="auth-tab active" id="login-tab" type="button">登录</button>
-        <button class="auth-tab" id="register-tab" type="button">注册</button>
-      </div>
-      <div id="auth-login-panel">
-        <h2>进入工作台</h2>
-        <p>使用邮箱密码登录。</p>
-        <div class="field"><label>邮箱</label><input id="login-email" type="email" value="admin@wanren.local" autocomplete="email" /></div>
-        <div class="field"><label>密码</label><input id="login-password" type="password" placeholder="输入密码" autocomplete="current-password" /></div>
-        <div class="actions"><button id="login-button" class="btn primary" type="button">⇨ 登录</button><span id="login-message" class="muted"></span></div>
-      </div>
-      <div id="auth-register-panel" hidden>
-        <h2>创建账号</h2>
-        <p>注册后可创建内容任务、上传素材并生成文章。</p>
-        <div id="register-disabled" class="auth-disabled" hidden>注册功能暂时关闭，请联系管理员。</div>
-        <div class="field"><label>邮箱</label><input id="register-email" type="email" placeholder="you@example.com" autocomplete="email" /></div>
-        <div class="field"><label>姓名（可选）</label><input id="register-name" maxlength="100" placeholder="内容编辑" /></div>
-        <div class="field"><label>密码</label><input id="register-password" type="password" placeholder="至少8位，包含字母和数字" autocomplete="new-password" /></div>
-        <div class="field"><label>确认密码</label><input id="register-confirm" type="password" placeholder="再次输入密码" autocomplete="new-password" /></div>
-        <div class="actions"><button id="register-button" class="btn primary" type="button">＋ 创建账号</button><span id="register-message" class="muted"></span></div>
-      </div>
-    </section>
+<div id="writing-preview-modal" style="display:none" role="dialog" aria-modal="true" aria-label="文字风格">
+  <div class="new-chat-card" style="width:min(720px,94vw)">
+    <div class="new-chat-head">
+      <strong id="writing-preview-title">文字风格</strong>
+      <button type="button" class="icon-btn" onclick="closeWritingPreview()" aria-label="关闭"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="new-chat-body" id="writing-preview-body" style="max-height:70vh;overflow:auto"></div>
   </div>
 </div>
-<script src="/app.js?v=20260930r1"></script>
+<div id="writing-import-modal" style="display:none" role="dialog" aria-modal="true" aria-label="导入文字风格">
+  <div class="new-chat-card" style="width:min(680px,94vw)">
+    <div class="new-chat-head">
+      <strong>导入文字风格</strong>
+      <button type="button" class="icon-btn" onclick="closeWritingImport()" aria-label="关闭"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="new-chat-body">
+      <div class="grid-2">
+        <div class="field"><label>风格名称</label><input id="writing-import-name" placeholder="我的口吻" /></div>
+        <div class="field"><label>气质（可选）</label><input id="writing-import-vibe" placeholder="冷静、带点幽默" /></div>
+      </div>
+      <div class="field"><label>适用内容（可选）</label><input id="writing-import-suits" placeholder="周记、产品更新" /></div>
+      <div class="field"><label>风格刻画（20–600 字：语气、句式、节奏、禁忌，写给你的读者听）</label><textarea id="writing-import-description" placeholder="想象你在跟一个聪明的朋友讲一件你刚搞明白的事……"></textarea></div>
+      <div class="field"><label>硬性规则（每行一条，最多 8 条）</label><textarea id="writing-import-rules" placeholder="句子平均不超过 20 字&#10;直接用「你」称呼读者"></textarea></div>
+      <div class="field"><label>范文一（至少 80 字——这是风格的灵魂，AI 只学笔感不学题材）</label><textarea id="writing-import-sample1" class="code" placeholder="贴一段你写过的、最能代表这个风格的文章片段……"></textarea></div>
+      <div class="field"><label>范文二（可选）</label><textarea id="writing-import-sample2" class="code" placeholder="再来一段不同题材的……"></textarea></div>
+      <div class="actions"><button id="writing-import-submit" class="btn primary" type="button" onclick="submitWritingImport()">⇩ 导入</button><span id="writing-import-message" class="status"></span></div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+<script src="/vendor/html2canvas.min.js"></script>
+<script src="/app.js?v=20261014r2"></script>
 </body>
 </html>
 

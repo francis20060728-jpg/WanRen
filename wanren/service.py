@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import re
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import json
@@ -20,6 +21,7 @@ import httpx
 
 from .ai import GenerationError, GenerationResult, build_text_adapter
 from .typesetting import STYLES as TYPESETTING_STYLES
+from .writing import WRITING_STYLES, validate_writing_style_payload
 from .typesetting import (
     account_style_fallback,
     demo_preview_html,
@@ -449,14 +451,17 @@ class WanRenService:
                 "style": json.loads(template["style_json"] or "{}"),
                 "version": template["version"],
             }
+        writing_style_id = payload.writing_style_id or None
+        if writing_style_id and writing_style_id not in self._writing_style_map():
+            raise ServiceError("未知文字风格", 400)
         session_id = new_id("session")
         now = utc_now()
         with self.db.tx():
             self.db.execute(
                 """
                 INSERT INTO content_session
-                (id,workspace_id,official_account_id,title,status,goal,audience,tone,requirements,brief,created_at,updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                (id,workspace_id,official_account_id,title,status,goal,audience,tone,requirements,brief,writing_style_id,created_at,updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     session_id,
@@ -476,6 +481,7 @@ class WanRenService:
                         },
                         ensure_ascii=False,
                     ),
+                    writing_style_id,
                     now,
                     now,
                 ),
@@ -1283,6 +1289,96 @@ class WanRenService:
             "sample": {"id": next(k for k, v in DEMO_SAMPLES.items() if v is sample), "name": sample["name"]},
             "samples": [{"id": key, "name": value["name"]} for key, value in DEMO_SAMPLES.items()],
         }
+
+    # ------------------------------------------------ 文字风格模版 ----
+
+    def _custom_writing_rows(self) -> list[dict[str, Any]]:
+        return self.db.query_all(
+            "SELECT * FROM writing_style WHERE workspace_id='ws_default' ORDER BY created_at"
+        )
+
+    def _writing_style_map(self) -> dict[str, dict[str, Any]]:
+        """内置 + 导入的文字风格并集（id → 完整风格字典）。"""
+        styles: dict[str, dict[str, Any]] = {
+            sid: dict(style) for sid, style in WRITING_STYLES.items()
+        }
+        for row in self._custom_writing_rows():
+            try:
+                payload = json.loads(row["payload_json"])
+            except json.JSONDecodeError:
+                continue
+            styles[row["id"]] = {
+                **payload,
+                "id": row["id"],
+                "name": row["name"],
+                "vibe": row["vibe"],
+                "suits": row["suits"],
+            }
+        return styles
+
+    def list_writing_styles(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": style["id"],
+                "name": style.get("name", ""),
+                "vibe": str(style.get("vibe", "")),
+                "suits": str(style.get("suits", "")),
+                "builtin": style["id"] in WRITING_STYLES,
+            }
+            for style in self._writing_style_map().values()
+        ]
+
+    def writing_style_detail(self, style_id: str) -> dict[str, Any]:
+        style = self._writing_style_map().get(style_id)
+        if style is None:
+            raise ServiceError("文字风格不存在", 404)
+        return {"style": style}
+
+    def import_writing_style(self, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            style = validate_writing_style_payload(payload)
+        except ValueError as exc:
+            raise ServiceError(f"文字风格无效：{exc}", 400) from exc
+        duplicate = self.db.query_one(
+            "SELECT id FROM writing_style WHERE workspace_id='ws_default' AND name=?",
+            (style["name"],),
+        )
+        if duplicate is not None:
+            raise ServiceError(f"已存在同名文字风格：{style['name']}", 409)
+        if any(item.get("name") == style["name"] for item in WRITING_STYLES.values()):
+            raise ServiceError(f"与内置文字风格重名：{style['name']}", 409)
+        style_id = new_id("wstyle")
+        with self.db.tx():
+            self.db.execute(
+                """
+                INSERT INTO writing_style
+                (id,workspace_id,name,vibe,suits,payload_json,created_at)
+                VALUES (?,?,?,?,?,?,?)
+                """,
+                (
+                    style_id,
+                    "ws_default",
+                    style["name"],
+                    style["vibe"],
+                    style["suits"],
+                    json.dumps(style, ensure_ascii=False),
+                    utc_now(),
+                ),
+            )
+        self.audit("writing_style.import", "writing_style", style_id, {"name": style["name"]})
+        return {"style": self._writing_style_map().get(style_id, style)}
+
+    def delete_writing_style(self, style_id: str) -> dict[str, Any]:
+        row = self.db.query_one("SELECT * FROM writing_style WHERE id = ?", (style_id,))
+        if row is None:
+            raise ServiceError("文字风格不存在或为内置风格（内置不可删除）", 404)
+        with self.db.tx():
+            self.db.execute("DELETE FROM writing_style WHERE id = ?", (style_id,))
+            self.db.execute(
+                "UPDATE content_session SET writing_style_id=NULL WHERE writing_style_id=?", (style_id,)
+            )
+        self.audit("writing_style.delete", "writing_style", style_id, {"name": row["name"]})
+        return {"ok": True}
 
     def _resolved_style_for(self, typesetting_id: str | None, account_settings: dict[str, Any]) -> dict[str, Any]:
         if typesetting_id:
@@ -4406,24 +4502,27 @@ class WanRenService:
     def create_user(self, actor: dict[str, Any], payload: UserCreate) -> dict[str, Any]:
         self.require_permission(actor, "user.manage")
         user_id = new_id("user")
-        with self.db.tx():
-            self.db.execute(
-                """
-                INSERT INTO app_user
-                (id,workspace_id,email,name,password_hash,role,status,created_at)
-                VALUES (?,?,?,?,?,?,?,?)
-                """,
-                (
-                    user_id,
-                    "ws_default",
-                    payload.email.lower(),
-                    payload.name,
-                    hash_password(payload.password),
-                    payload.role,
-                    "ACTIVE",
-                    utc_now(),
-                ),
-            )
+        try:
+            with self.db.tx():
+                self.db.execute(
+                    """
+                    INSERT INTO app_user
+                    (id,workspace_id,email,name,password_hash,role,status,created_at)
+                    VALUES (?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        user_id,
+                        "ws_default",
+                        payload.email.lower(),
+                        payload.name,
+                        hash_password(payload.password),
+                        payload.role,
+                        "ACTIVE",
+                        utc_now(),
+                    ),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ServiceError("该邮箱已被使用", 400) from exc
         self.audit("user.create", "user", user_id, {"email": payload.email, "role": payload.role})
         row = self.db.query_one("SELECT * FROM app_user WHERE id = ?", (user_id,))
         assert row is not None

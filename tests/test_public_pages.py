@@ -65,7 +65,8 @@ def test_landing_visual_asset_exists_and_is_raster():
 def test_workspace_branding_has_no_legacy_product_character():
     workspace = Path("static/index.html").read_text(encoding="utf-8")
     assert '<div class="brand-mark">万</div>' in workspace
-    assert '<div class="auth-brand-mark">万</div>' in workspace
+    auth_page = Path("static/auth.html").read_text(encoding="utf-8")
+    assert '>万</span>' in auth_page  # 登录独立页品牌标记（旧登录浮层已下线）
     assert ">墨<" not in workspace
     for script_name in ("static/app.js", "static/site.js"):
         script = Path(script_name).read_text(encoding="utf-8")

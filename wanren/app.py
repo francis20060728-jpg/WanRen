@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import load_settings
 from .database import Database
-from .schemas import AccountCreate, AccountUpdate, ArticleChatRequest, ArticleUpdate, AssetAnalyzeRequest, AssistToolResult, ConfirmProposalRequest, ConnectionTestRequest, GenerateRequest, LoginRequest, OriginalDeclarationRequest, PublishRequest, RegisterRequest, ReviewRequest, RevertRequest, SchedulePublishRequest, SessionCreate, StyleImportRequest, TemplateCreate, TemplateGenerateRequest, TemplateSearchRequest, TemplateUpdate, TextSettingsUpdate, UserCreate, VideoTranscodeRequest, VisionSettingsUpdate
+from .schemas import AccountCreate, AccountUpdate, ArticleChatRequest, ArticleUpdate, AssetAnalyzeRequest, AssistToolResult, ConfirmProposalRequest, ConnectionTestRequest, GenerateRequest, LoginRequest, OriginalDeclarationRequest, PublishRequest, RegisterRequest, ReviewRequest, RevertRequest, SchedulePublishRequest, SessionCreate, StyleImportRequest, TemplateCreate, TemplateGenerateRequest, TemplateSearchRequest, TemplateUpdate, TextSettingsUpdate, UserCreate, VideoTranscodeRequest, VisionSettingsUpdate, WritingStyleImportRequest
 from .service import WanRenService, ServiceError
 
 
@@ -312,6 +312,24 @@ def create_app(env: dict[str, str] | None = None) -> FastAPI:
     @app.delete("/api/typesetting-styles/{style_id}")
     def delete_typesetting_style(style_id: str, dependency=require("account.manage")) -> dict[str, Any]:
         return service.delete_typesetting_style(style_id)
+
+    @app.get("/api/writing-styles")
+    def writing_styles(dependency=require("read")) -> dict[str, Any]:
+        return {"styles": service.list_writing_styles()}
+
+    @app.get("/api/writing-styles/{style_id}")
+    def writing_style_detail(style_id: str, dependency=require("read")) -> dict[str, Any]:
+        return service.writing_style_detail(style_id)
+
+    @app.post("/api/writing-styles")
+    def import_writing_style(
+        payload: WritingStyleImportRequest, dependency=require("account.manage")
+    ) -> dict[str, Any]:
+        return service.import_writing_style(payload.model_dump())
+
+    @app.delete("/api/writing-styles/{style_id}")
+    def delete_writing_style(style_id: str, dependency=require("account.manage")) -> dict[str, Any]:
+        return service.delete_writing_style(style_id)
 
     @app.post("/api/sessions/{session_id}/propose")
     def propose_architecture(

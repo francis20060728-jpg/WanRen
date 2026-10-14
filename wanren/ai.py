@@ -10,6 +10,7 @@ import httpx
 
 from .context import SessionContext
 from .editorial import build_editorial_metadata
+from .writing import writing_style_prompt
 
 
 @dataclass
@@ -566,9 +567,17 @@ class OpenAICompatibleAdapter:
         return (
             "你是微信公众号内容编辑。只返回一个合法 JSON 对象，不要 Markdown。"
             "JSON schema: {\"title\":string, \"summary\":string, \"sections\":["
-            "{\"id\":string, \"heading\":string, \"paragraphs\":string[], \"asset_refs\":string[]}]}. "
+            "{\"id\":string, \"heading\":string, \"paragraphs\":string[], \"asset_refs\":string[]}], "
+            "\"metrics\":[{\"value\":string, \"label\":string}]}. "
             "title 不超过32个汉字；summary 不超过120个汉字；sections 3-6个；"
             "asset_refs 只能使用输入素材ID；不得编造无法溯源的数据。"
+            "配图宁缺毋滥：只引用最支撑本节论述的插图，通常每节一张、全文不超过四张；"
+            "同一节连排多图会破坏阅读节奏，宁可少放。"
+            "metrics 是文末数据卡的创作决策，由你判断：只有当数字确实是这篇文章的关键结论、"
+            "值得用卡片形式突出时才给（最多 4 张）；value 为数字加单位、尽量简短；"
+            "label 用简短名词短语说明这个数字度量的是什么（对象或条件），"
+            "不得使用「百分比」「指标」这类无信息量的泛称；"
+            "数字必须出自你写的正文或证据摘要；不合适就返回空数组，不要硬凑。"
             "写作要求：像真人编辑写给读者，而不是执行任务清单；不用 bullet 罗列事实；"
             "每段自然衔接，段落长度随内容伸缩；关键指标必须解释含义、条件和工程意义；"
             "论文解读需覆盖问题、方法取舍、结果、局限和来源信息；机构成果稿需有成果速递、"
@@ -630,7 +639,40 @@ class OpenAICompatibleAdapter:
                     asset_refs=asset_refs,
                 )
             )
-        return GeneratedArticle(title=title[:32], summary=summary[:120], sections=sections, editorial={})
+        # 配图节奏守门：单节至多 2 张、全文至多 6 张——模型偶尔会把图堆进同一节，
+        # 渲染端按节尾追加会把它们连排成图墙（后续审美巡检也会挑出，这里先确定性截断）
+        figure_budget = 6
+        for section in sections:
+            allowed = min(2, figure_budget)
+            if len(section.asset_refs) > allowed:
+                section.asset_refs = section.asset_refs[:allowed]
+            figure_budget -= len(section.asset_refs)
+        article = GeneratedArticle(title=title[:32], summary=summary[:120], sections=sections, editorial={})
+        # metrics 是可选的创作决策：模型判断是否用数据卡、用哪几张。
+        # 消毒规则：最多 4 张、去重、value/label 限长；数字必须出自模型自己写的正文（防编造），不合规的单张丢弃。
+        if "metrics" in payload:
+            article_text = " ".join(
+                [title, summary] + [p for s in sections for p in s.paragraphs]
+            )
+            cleaned: list[dict[str, str]] = []
+            seen_values: set[str] = set()
+            raw_metrics = payload.get("metrics")
+            if not isinstance(raw_metrics, list):
+                raise ValueError("model article metrics must be an array")
+            for raw in raw_metrics[:6]:
+                if not isinstance(raw, dict):
+                    continue
+                value = str(raw.get("value", "")).strip()[:16]
+                label = str(raw.get("label", "")).strip()[:16]
+                number = re.search(r"\d+(?:\.\d+)?", value)
+                if not value or not label or value.lower() in seen_values:
+                    continue
+                if not number or number.group(0) not in article_text:
+                    continue
+                seen_values.add(value.lower())
+                cleaned.append({"value": value, "label": label})
+            article.editorial = {"metrics": cleaned[:4]}
+        return article
 
     @staticmethod
     def _estimate_tokens(*values: Any) -> int:
@@ -689,6 +731,9 @@ class OpenAICompatibleAdapter:
             {"task": instruction or payload.get("goal"), "context": payload},
             ensure_ascii=False,
         )
+        # 文字风格模版：人工范文 few-shot 注入，让模型贴着真人的笔感写
+        if context.writing_style:
+            user_content += writing_style_prompt(context.writing_style)
         template = payload.get("template") if isinstance(payload.get("template"), dict) else {}
         outline = template.get("structure") if isinstance(template.get("structure"), list) else []
         if outline:
@@ -718,8 +763,12 @@ class OpenAICompatibleAdapter:
                 completion = self._post_chat(body, headers)
                 content = completion["choices"][0]["message"]["content"]
                 article = self._validate_article(self._extract_json(content), context)
-                article.editorial = build_editorial_metadata(context, instruction)
+                metadata = build_editorial_metadata(context, instruction)
                 # Editorial metadata is derived locally so model style claims cannot override evidence.
+                # 例外：数据卡（metrics）是表现手法决策——模型给了（含显式空数组）就用模型的，没给才回退证据摘要启发式。
+                if "metrics" in article.editorial:
+                    metadata["metrics"] = article.editorial["metrics"]
+                article.editorial = metadata
                 usage = completion.get("usage") or {}
                 output_tokens = int(usage.get("completion_tokens") or self._estimate_tokens(article))
                 input_tokens = int(usage.get("prompt_tokens") or input_tokens)

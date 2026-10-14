@@ -11,7 +11,10 @@
 - **Proposal before writing** — AI reads your materials, then proposes title, section-by-section outline and a recommended typesetting style. You confirm, tweak, or cancel before a single paragraph is written
 - **True WYSIWYG** — the editor canvas is fixed at 677px (WeChat article width); fonts, figure captions, metric cards match the published article exactly. Ctrl+wheel scales the view without touching layout
 - **8 typesetting style templates** — from Blue Magazine to Academic Frame; all render as WeChat-safe inline HTML (no flex/grid/gradients). Import custom styles via JSON, export and share
+- **Paper-figure extraction** — embedded bitmaps and vector-drawn charts (clustered geometry, re-rendered at 200 dpi) both become captioned, numbered article assets from academic PDFs
 - **Chat-driven editing** — AI edits the article block by block through visible tool calls; every round can be aborted, replayed with highlights, or rolled back
+- **Writing-style templates** — 6 built-in voices (chat-friendly, deep-read, how-to, storytelling, sharp-comment, gentle-essay); import your own prose samples and the model learns the voice, never the topic
+- **Aesthetic self-check** — after generation the rendered page is screenshotted and reviewed by a vision model; layout issues (image stacking, text walls) flow back as automatic fix instructions
 - **Full WeChat pipeline** — multi-account, draft sync with automatic `draft/update`, import external drafts, scheduled publishing, status callbacks
 - **Team & ops** — 5-role RBAC, AI cost tracking, workflow monitoring, audit log, 6 UI themes
 

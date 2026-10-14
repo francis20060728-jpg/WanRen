@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class SessionCreate(BaseModel):
     official_account_id: str | None = Field(default=None, max_length=100)
     template_id: str | None = Field(default=None, max_length=100)
+    writing_style_id: str | None = Field(default=None, max_length=100)
     title: str = Field(min_length=2, max_length=120)
     goal: str = Field(default="", max_length=2000)
     audience: str = Field(default="", max_length=500)
@@ -155,6 +156,15 @@ class StyleImportRequest(BaseModel):
     vibe: str = Field(default="", max_length=60)
     suits: str = Field(default="", max_length=120)
     tokens: dict[str, Any] = Field(default_factory=dict)
+
+
+class WritingStyleImportRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=40)
+    vibe: str = Field(default="", max_length=80)
+    suits: str = Field(default="", max_length=120)
+    description: str = Field(min_length=20, max_length=600)
+    rules: list[str] = Field(default_factory=list, max_length=8)
+    samples: list[dict[str, Any]] = Field(min_length=1, max_length=4)
 
 
 class RevertRequest(BaseModel):

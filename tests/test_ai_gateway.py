@@ -96,6 +96,46 @@ def test_openai_compatible_accepts_fenced_json(client):
     assert result.article.sections[0].id == "sec_01"
 
 
+def test_model_metrics_override_heuristic_and_ground_to_article_text(client):
+    context = make_context(client)
+    payload = article_payload()
+    payload["sections"][0]["paragraphs"].append("固定边界模型的烘干时长为 57.86 小时，全程体积收缩 64%。")
+    payload["metrics"] = [
+        {"value": "57.86 h", "label": "定边界模型的烘干时长"},
+        {"value": "64%", "label": "烘干全程的体积收缩"},
+        {"value": "99.9%", "label": "正文没有的数字"},  # 数字不在正文 → 丢弃
+    ]
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json=model_response(json.dumps(payload, ensure_ascii=False)))
+    )
+    editorial = adapter(transport).generate(context, "").article.editorial
+    assert editorial["metrics"] == [
+        {"value": "57.86 h", "label": "定边界模型的烘干时长"},
+        {"value": "64%", "label": "烘干全程的体积收缩"},
+    ]
+
+
+def test_model_empty_metrics_means_no_cards(client):
+    context = make_context(client)
+    payload = article_payload()
+    payload["metrics"] = []
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json=model_response(json.dumps(payload, ensure_ascii=False)))
+    )
+    editorial = adapter(transport).generate(context, "").article.editorial
+    assert editorial["metrics"] == []
+
+
+def test_absent_metrics_fall_back_to_evidence_heuristic(client):
+    context = make_context(client)
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json=model_response(json.dumps(article_payload(), ensure_ascii=False)))
+    )
+    editorial = adapter(transport).generate(context, "").article.editorial
+    # 模型没给 metrics：回退证据摘要启发式（普通会话无证据数字 → 空列表，结构仍是 list）
+    assert isinstance(editorial["metrics"], list)
+
+
 def test_openai_compatible_retries_transient_and_recovers(client):
     context = make_context(client)
     calls = []

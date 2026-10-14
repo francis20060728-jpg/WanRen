@@ -221,3 +221,19 @@ def test_registration_session_cookie_security(tmp_path):
         assert "HttpOnly" in cookie
         assert "SameSite=lax" in cookie or "samesite=lax" in cookie
         assert "Secure" not in cookie  # dev mode runs behind local HTTP
+
+
+def test_create_user_duplicate_email_returns_400(tmp_path):
+    with auth_client(tmp_path) as client:
+        admin = login(client)
+        headers = {"Authorization": f"Bearer {admin['token']}"}
+        payload = {
+            "email": "once@test.local",
+            "name": "首次创建",
+            "password": "strong-pass-1",
+            "role": "EDITOR",
+        }
+        assert client.post("/api/users", headers=headers, json=payload).status_code == 200
+        duplicate = client.post("/api/users", headers=headers, json=payload)
+        assert duplicate.status_code == 400
+        assert "已被使用" in duplicate.json()["detail"]
